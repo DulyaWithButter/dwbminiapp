@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Покажи дулю — DULYA Mini App</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800;900&family=Manrope:wght@500;700;800&family=JetBrains+Mono:wght@600;700&display=swap" rel="stylesheet">
+<!-- Telegram WebApp API. Вне Telegram просто не найдётся — код ниже это учитывает. -->
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  :root{
+    --ink:#0b0b0d;
+    --ink-2:#18161a;
+    --paper:#fff4e3;
+    --orange:#ff5a1f;
+    --gold:#ffb703;
+    --gold-2:#ffd85e;
+    --miss:#ff3b3b;
+    --dim: rgba(255,244,227,.5);
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; }
+  html,body{ height:100%; }
+  body{
+    margin:0;
+    background:var(--ink);
+    color:var(--paper);
+    font-family:'Manrope',sans-serif;
+    display:flex;
+    justify-content:center;
+    overflow:hidden;
+  }
+  #app{
+    width:100%;
+    max-width:480px;
+    height:100dvh;
+    display:flex;
+    flex-direction:column;
+    padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+  }
+  h1,.display{ font-family:'Unbounded',sans-serif; margin:0; }
+  .mono{ font-family:'JetBrains Mono',monospace; }
+
+  /* ---- top bar ---- */
+  .topbar{
+    background:var(--orange);
+    color:var(--ink);
+    padding:12px 16px 10px;
+  }
+  .topbar-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+  }
+  .stat{
+    display:flex;
+    flex-direction:column;
+    align-items:flex-start;
+    transition:opacity .25s ease;
+    flex:1;
+  }
+  .stat.right{ align-items:flex-end; }
+  .stat.center{
+    flex-direction:row;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    flex:1.2;
+  }
+  .stat.dim{ opacity:.4; }
+  .stat .label{
+    font-size:10px;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+    color:rgba(11,11,13,.6);
+  }
+  .stat .val{
+    font-size:20px;
+    font-weight:800;
+    color:var(--ink);
+  }
+  .token-icon{
+    width:22px;
+    height:22px;
+    border-radius:7px;
+    object-fit:cover;
+    background:rgba(11,11,13,.1);
+    padding:2px;
+  }
+  .stat.center .val{ font-size:19px; }
+
+  .mode-badge{
+    display:block;
+    width:fit-content;
+    margin:8px auto 0;
+    font-size:10px;
+    font-weight:700;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    padding:5px 13px;
+    border-radius:999px;
+    border:1.5px solid rgba(11,11,13,.3);
+    color:rgba(11,11,13,.65);
+  }
+  .mode-badge.paid{ background:var(--ink); border-color:var(--ink); color:var(--gold-2); }
+  .mode-badge.training{ border-color:rgba(11,11,13,.5); color:var(--ink); }
+
+  /* ---- game stage ---- */
+  .stage{
+    flex:1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    position:relative;
+    padding:10px 24px;
+  }
+  #wheel{
+    width:100%;
+    max-width:340px;
+    aspect-ratio:1/1;
+    touch-action:none;
+  }
+  .center-readout{
+    position:absolute;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    pointer-events:none;
+  }
+  .center-readout .streak-n{
+    font-size:44px;
+    font-weight:900;
+    font-family:'Unbounded',sans-serif;
+  }
+  .center-readout .streak-s{
+    font-size:11px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--dim);
+    margin-top:2px;
+  }
+  .mult-tag{
+    margin-top:6px;
+    font-size:13px;
+    font-weight:800;
+    color:var(--ink);
+    background:var(--gold);
+    padding:3px 10px;
+    border-radius:999px;
+    opacity:0;
+    transition:opacity .15s ease;
+  }
+  .mult-tag.show{ opacity:1; }
+
+  .toast{
+    position:absolute;
+    top:8%;
+    left:50%;
+    transform:translate(-50%,-10px);
+    background:var(--gold);
+    color:var(--ink);
+    font-family:'Unbounded',sans-serif;
+    font-weight:800;
+    font-size:14px;
+    padding:10px 18px;
+    border-radius:14px;
+    box-shadow:0 10px 24px rgba(0,0,0,.4);
+    opacity:0;
+    transition: opacity .2s ease, transform .2s ease;
+    pointer-events:none;
+    white-space:nowrap;
+  }
+  .toast.show{ opacity:1; transform:translate(-50%,0); }
+
+  /* ---- bottom control panel ---- */
+  .panel{
+    padding:16px 22px 10px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:10px;
+  }
+  .timer-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-size:13px;
+    color:var(--dim);
+    min-height:18px;
+  }
+  .timer-row .mono{ color:var(--paper); font-weight:700; }
+
+  .start-btn{
+    width:100%;
+    max-width:230px;
+    font-family:'Unbounded',sans-serif;
+    font-weight:800;
+    font-size:13px;
+    color:var(--ink);
+    background:linear-gradient(180deg,var(--gold-2),var(--gold));
+    border:none;
+    border-radius:13px;
+    padding:12px;
+    box-shadow:0 6px 0 #c88400, 0 10px 20px rgba(0,0,0,.4);
+    cursor:pointer;
+  }
+  .start-btn:active{ transform:translateY(3px); box-shadow:0 3px 0 #c88400; }
+  .start-btn:disabled{
+    background:var(--ink-2);
+    color:var(--dim);
+    box-shadow:none;
+    cursor:default;
+  }
+  .cooldown-box{
+    width:100%;
+    max-width:320px;
+    text-align:center;
+    padding:14px;
+    border-radius:16px;
+    background:var(--ink-2);
+    border:1.5px solid rgba(255,244,227,.12);
+  }
+  .cooldown-box .t{ font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--dim); }
+  .cooldown-box .v{ font-size:20px; font-weight:800; margin-top:4px; }
+
+  .dev-note{
+    font-size:10px;
+    color:rgba(255,244,227,.3);
+    text-align:center;
+    margin-top:2px;
+  }
+
+  /* ---- bottom nav ---- */
+  nav{
+    display:flex;
+    border-top:1px solid rgba(255,244,227,.1);
+    background:var(--ink-2);
+  }
+  nav button{
+    flex:1;
+    background:none;
+    border:none;
+    color:var(--dim);
+    font-family:'Manrope',sans-serif;
+    font-size:9.5px;
+    font-weight:700;
+    padding:10px 2px 9px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:4px;
+  }
+  nav button.active{ color:var(--gold-2); }
+  nav button .dot{ font-size:16px; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div class="topbar">
+    <div class="topbar-row">
+      <div class="stat left" id="stat-karma">
+        <span class="label">Карма</span>
+        <span class="val mono" id="points-val">0</span>
+      </div>
+      <div class="stat center" id="stat-tokens">
+        <img class="token-icon" src="assets/logo.png" alt="">
+        <span class="val mono" id="tokens-val">0</span>
+      </div>
+      <div class="stat right" id="stat-potential">
+        <span class="label">Потенциал</span>
+        <span class="val mono" id="training-val">0</span>
+      </div>
+    </div>
+    <div class="mode-badge" id="mode-badge">Готов</div>
+  </div>
+
+  <div class="stage">
+    <canvas id="wheel"></canvas>
+    <div class="center-readout">
+      <span class="streak-n mono" id="streak-val">0</span>
+      <span class="streak-s">streak</span>
+      <span class="mult-tag" id="mult-tag">x1</span>
+    </div>
+    <div class="toast" id="toast"></div>
+  </div>
+
+  <div class="panel">
+    <div class="timer-row" id="timer-row"></div>
+    <button class="start-btn" id="start-btn">Старт (3:00)</button>
+    <div class="dev-note">Прототип фронтенда · сессии/кулдаун считаются локально до подключения бэкенда</div>
+  </div>
+
+  <nav>
+    <button class="active"><span class="dot">🎯</span>Игра</button>
+    <button disabled><span class="dot">📋</span>Задания</button>
+    <button disabled><span class="dot">👥</span>Друзья</button>
+    <button disabled><span class="dot">👛</span>Кошелёк</button>
+    <button disabled><span class="dot">🏆</span>Лидерборд</button>
+  </nav>
+
+</div>
+
+<script>
+/* =========================================================================
+   DULYA — «Покажи дулю»: прототип игровой механики (фронтенд-часть).
+
+   ВАЖНО: в проде решения ниже, отмеченные [SERVER], принимает бэкенд.
+   Здесь они симулируются локально, чтобы можно было играть и тестировать
+   без готового API. Когда бэкенд будет готов, эти места меняются на fetch()
+   к эндпоинтам из нашей схемы: /game/session/start, /game/tap, /game/state.
+   ========================================================================= */
+
+// ---- Telegram WebApp (безопасно работает и вне Telegram) ----
+const tg = window.Telegram?.WebApp;
+if (tg) { tg.ready(); tg.expand(); }
+function haptic(type){
+  if (!tg?.HapticFeedback) return;
+  if (type === 'hit') tg.HapticFeedback.impactOccurred('light');
+  if (type === 'miss') tg.HapticFeedback.impactOccurred('rigid');
+  if (type === 'golden') tg.HapticFeedback.notificationOccurred('success');
+}
+
+// ---- Игровые константы (баланс — см. ТЗ, легко подкручивать) ----
+const SECTOR_COUNT = 8;
+const SECTOR_ANGLE = (Math.PI * 2) / SECTOR_COUNT;
+const BASE_SPEED = 0.5;          // рад/сек, скорость вращения колеса
+const SLOW_SPEED = 0.2;          // скорость после промаха
+const SLOW_DURATION_MS = 2500;
+const HIGHLIGHT_WINDOW_MS = 950; // сколько времени сектор активен для тапа
+const GOLDEN_CHANCE = 0.005;     // 0.5% — [SERVER] в проде считается на бэке
+const SESSION_MS = 3 * 60 * 1000;
+const COOLDOWN_MS = 3 * 60 * 60 * 1000; // 3 часа до следующей оплачиваемой сессии. [SERVER] в проде отдаёт бэк.
+
+const STREAK_TIERS = [ // [minStreak, multiplier]
+  // x6/x7 достижимы и в платной сессии (реальный тест — 362 тапа за 3 мин).
+  // x8-x10 — марафонские тиры для бесконечной тренировки.
+  [1500, 10], [1000, 9], [500, 8], [200, 7], [100, 6],
+  [30, 5], [15, 3], [5, 2], [0, 1]
+];
+function multiplierFor(streak){
+  for (const [min, mult] of STREAK_TIERS) if (streak >= min) return mult;
+  return 1;
+}
+
+// ---- Состояние ----
+let state = {
+  points: 0,              // очки, идущие в зачёт airdrop (только paid-режим)
+  trainingPoints: 0,      // очки тренировки, на airdrop не влияют
+  tokens: 0,               // реальные токены, пойманные в золотом секторе
+  streak: 0,
+  mode: 'training',       // paid | training — тренировка теперь дефолтный режим, играбельна всегда
+  sessionEndAt: null,
+  cooldownUntil: 0,       // пока 0 — кнопка «Старт» активна сразу
+  rotation: 0,
+  speed: BASE_SPEED,
+  slowUntil: 0,
+  activeSector: null,
+  activeIsGolden: false,
+  activeExpiresAt: 0,
+  resolved: true,          // тап по текущему активному сектору уже засчитан?
+};
+
+// ---- Canvas setup ----
+const canvas = document.getElementById('wheel');
+const ctx = canvas.getContext('2d');
+let cssSize = 0;
+
+function resizeCanvas(){
+  const rect = canvas.getBoundingClientRect();
+  cssSize = rect.width;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = cssSize * dpr;
+  canvas.height = cssSize * dpr;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+window.addEventListener('resize', resizeCanvas);
+
+// Картинка, которую рисуем поверх активного сектора.
+const handImg = new Image();
+let handImgReady = false;
+handImg.onload = () => { handImgReady = true; };
+handImg.src = 'assets/dulya-hand.png';
+
+// Небольшая случайная вариация оттенка золота при каждой генерации —
+// требование ТЗ 4.1 (усложняет пиксельных ботов).
+function goldenHue(){
+  const hueShift = (Math.random() * 14) - 7; // ±7°
+  return `hsl(${43 + hueShift} 100% ${58 + Math.random()*6}%)`;
+}
+let currentGoldenColor = goldenHue();
+
+function pickNextSector(){
+  let next;
+  do { next = Math.floor(Math.random() * SECTOR_COUNT); }
+  while (next === state.activeSector && SECTOR_COUNT > 1);
+  state.activeSector = next;
+  state.resolved = false;
+  state.activeExpiresAt = performance.now() + HIGHLIGHT_WINDOW_MS;
+
+  // [SERVER] Вероятность золотого сектора и суточный hard cap считает бэкенд.
+  state.activeIsGolden = (state.mode === 'paid') && Math.random() < GOLDEN_CHANCE;
+  if (state.activeIsGolden) currentGoldenColor = goldenHue();
+}
+
+function drawWheel(){
+  const size = cssSize;
+  const r = size/2 - 8;
+  const cx = size/2, cy = size/2;
+  ctx.clearRect(0,0,size,size);
+
+  for (let i=0; i<SECTOR_COUNT; i++){
+    const start = state.rotation + i*SECTOR_ANGLE;
+    const end = start + SECTOR_ANGLE;
+    const isActive = state.activeSector === i && !state.resolved;
+
+    ctx.beginPath();
+    ctx.moveTo(cx,cy);
+    ctx.arc(cx,cy,r,start,end);
+    ctx.closePath();
+
+    if (isActive && state.activeIsGolden){
+      ctx.fillStyle = currentGoldenColor;
+      ctx.shadowColor = 'rgba(255,183,3,.9)';
+      ctx.shadowBlur = 26;
+    } else if (isActive){
+      ctx.fillStyle = '#ff5a1f';
+      ctx.shadowColor = 'rgba(255,90,31,.7)';
+      ctx.shadowBlur = 16;
+    } else {
+      ctx.fillStyle = (i % 2 === 0) ? '#1f1b1e' : '#262024';
+      ctx.shadowBlur = 0;
+    }
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = 'rgba(255,244,227,.08)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    if (isActive && handImgReady){
+      const midAngle = start + SECTOR_ANGLE/2;
+      const imgR = r * 0.64;
+      const ix = cx + Math.cos(midAngle) * imgR;
+      const iy = cy + Math.sin(midAngle) * imgR;
+      const iw = r * 0.56;
+      const ih = iw * (handImg.naturalHeight / handImg.naturalWidth || 1);
+
+      ctx.save();
+      ctx.translate(ix, iy);
+      // Левый край картинки (локальное направление -x) смотрит наружу,
+      // к окружности — поэтому поворот на (midAngle - 180°).
+      ctx.rotate(midAngle - Math.PI);
+      ctx.drawImage(handImg, -iw/2, -ih/2, iw, ih);
+      ctx.restore();
+    }
+  }
+
+  // ступица
+  ctx.beginPath();
+  ctx.arc(cx,cy, r*0.32, 0, Math.PI*2);
+  ctx.fillStyle = '#0b0b0d';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,183,3,.5)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+}
+
+// ---- Игровой цикл ----
+let lastT = performance.now();
+function tick(now){
+  const dt = (now - lastT)/1000;
+  lastT = now;
+
+  if (state.mode === 'paid' || state.mode === 'training'){
+    const speed = (now < state.slowUntil) ? SLOW_SPEED : BASE_SPEED;
+    state.rotation += speed * dt;
+
+    if (state.activeSector === null){
+      pickNextSector();
+    } else if (!state.resolved && now > state.activeExpiresAt){
+      // пропуск окна — миссис
+      registerMiss();
+      pickNextSector();
+    }
+
+    if (state.mode === 'paid' && now > state.sessionEndAt){
+      endPaidSession();
+    }
+  }
+
+  drawWheel();
+  updateHud();
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+
+// ---- Ввод (тап) ----
+canvas.addEventListener('pointerdown', (e) => {
+  if (state.mode !== 'paid' && state.mode !== 'training') return;
+  if (state.activeSector === null || state.resolved) return;
+
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left - rect.width/2;
+  const y = e.clientY - rect.top - rect.height/2;
+  const dist = Math.hypot(x,y);
+  if (dist > rect.width/2 || dist < rect.width*0.16) return; // мимо колеса / по ступице
+
+  let angle = Math.atan2(y, x);
+  if (angle < 0) angle += Math.PI*2;
+  let local = angle - (state.rotation % (Math.PI*2));
+  local = ((local % (Math.PI*2)) + Math.PI*2) % (Math.PI*2);
+  const tappedSector = Math.floor(local / SECTOR_ANGLE);
+
+  // [SERVER] В проде здесь вместо локальной проверки — POST /game/tap
+  // c {session_token, sector_event_id, tap_at}, ответ определяет hit/miss.
+  if (tappedSector === state.activeSector){
+    registerHit();
+  } else {
+    registerMiss();
+  }
+  pickNextSector();
+});
+
+function registerHit(){
+  state.resolved = true;
+  state.streak += 1;
+  const mult = multiplierFor(state.streak);
+  const gained = mult;
+
+  if (state.mode === 'paid') state.points += gained;
+  else state.trainingPoints += gained;
+
+  showMultTag(mult);
+  haptic('hit');
+
+  if (state.activeIsGolden){
+    // [SERVER] Реальная сумма и суточный hard cap — на бэке. Тут только
+    // визуальный фидбек; фактическое начисление токенов пишется в
+    // golden_drops и выплачивается батчем (см. нашу схему).
+    const amount = 1 + Math.floor(Math.random()*5);
+    state.tokens += amount;
+    showToast(`✨ Золотой сектор! +${amount} DULYA`);
+    haptic('golden');
+  }
+}
+
+function registerMiss(){
+  state.resolved = true;
+  state.streak = 0;
+  state.slowUntil = performance.now() + SLOW_DURATION_MS;
+  hideMultTag();
+  haptic('miss');
+}
+
+// ---- Сессии / кулдаун (локальная симуляция, см. шапку файла) ----
+const startBtn = document.getElementById('start-btn');
+
+startBtn.addEventListener('click', () => {
+  if (performance.now() < state.cooldownUntil) return;
+  // [SERVER] В проде: POST /game/session/start → бэк проверяет кулдаун
+  // и присылает session_token + расписание sector_events.
+  state.mode = 'paid';
+  state.sessionEndAt = performance.now() + SESSION_MS;
+  state.activeSector = null;
+  state.streak = 0;
+});
+
+function endPaidSession(){
+  // Сессия закончилась — сразу возвращаемся в тренировку (она играбельна
+  // всегда), а «Старт» блокируется кулдауном на 3 часа.
+  state.mode = 'training';
+  state.activeSector = null;
+  state.cooldownUntil = performance.now() + COOLDOWN_MS;
+}
+
+function fmtClock(ms){
+  const s = Math.max(0, Math.ceil(ms/1000));
+  const m = Math.floor(s/60);
+  const r = s%60;
+  return `${m}:${r.toString().padStart(2,'0')}`;
+}
+function fmtClockLong(ms){
+  const s = Math.max(0, Math.ceil(ms/1000));
+  const h = Math.floor(s/3600);
+  const m = Math.floor((s%3600)/60);
+  const r = s%60;
+  return `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${r.toString().padStart(2,'0')}`;
+}
+
+// ---- HUD ----
+const pointsVal = document.getElementById('points-val');
+const trainingVal = document.getElementById('training-val');
+const tokensVal = document.getElementById('tokens-val');
+const statKarma = document.getElementById('stat-karma');
+const statPotential = document.getElementById('stat-potential');
+const streakVal = document.getElementById('streak-val');
+const modeBadge = document.getElementById('mode-badge');
+const timerRow = document.getElementById('timer-row');
+
+function updateHud(){
+  pointsVal.textContent = state.points;
+  trainingVal.textContent = state.trainingPoints;
+  tokensVal.textContent = state.tokens;
+  streakVal.textContent = state.streak;
+
+  // Карма тускнеет вне платной сессии, Потенциал — вне тренировки.
+  statKarma.classList.toggle('dim', state.mode !== 'paid');
+  statPotential.classList.toggle('dim', state.mode !== 'training');
+
+  const now = performance.now();
+  const inCooldown = now < state.cooldownUntil;
+
+  // бейдж режима
+  modeBadge.className = 'mode-badge' + (state.mode==='paid' ? ' paid' : ' training');
+  modeBadge.textContent = state.mode === 'paid' ? 'Сессия' : 'Тренировка';
+
+  // таймер сессии / кулдаун / кнопка старта
+  if (state.mode === 'paid'){
+    timerRow.innerHTML = `Осталось: <span class="mono">${fmtClock(state.sessionEndAt-now)}</span>`;
+    startBtn.style.display = 'none';
+  } else {
+    startBtn.style.display = 'block';
+    if (inCooldown){
+      timerRow.innerHTML = `Бесконечный режим · очки не идут в Airdrop`;
+      startBtn.disabled = true;
+      startBtn.textContent = `Следующая сессия через ${fmtClockLong(state.cooldownUntil-now)}`;
+    } else {
+      timerRow.innerHTML = `Бесконечный режим · очки не идут в Airdrop`;
+      startBtn.disabled = false;
+      startBtn.textContent = 'Старт (3:00)';
+    }
+  }
+}
+
+// ---- мелкий UI-фидбек ----
+const multTag = document.getElementById('mult-tag');
+let multTagTimeout;
+function showMultTag(mult){
+  multTag.textContent = 'x' + mult;
+  multTag.classList.add('show');
+  clearTimeout(multTagTimeout);
+  multTagTimeout = setTimeout(() => multTag.classList.remove('show'), 900);
+}
+function hideMultTag(){ multTag.classList.remove('show'); }
+
+const toast = document.getElementById('toast');
+let toastTimeout;
+function showToast(text){
+  toast.textContent = text;
+  toast.classList.add('show');
+  clearTimeout(toastTimeout);
+  toastTimeout = setTimeout(() => toast.classList.remove('show'), 1800);
+}
+
+// ---- init ----
+resizeCanvas();
+</script>
+</body>
+</html>
