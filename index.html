@@ -300,7 +300,14 @@
 
 // ---- Telegram WebApp (безопасно работает и вне Telegram) ----
 const tg = window.Telegram?.WebApp;
-if (tg) { tg.ready(); tg.expand(); }
+if (tg) {
+  tg.ready();
+  tg.expand();
+  // Временно для отладки: посмотреть initData в консоли (DevTools →
+  // Console), скопировать и проверить на бэкенде через /auth/telegram.
+  // Уберём эту строку, когда подключим фронт к бэкенду по-настоящему.
+  console.log('DULYA initData:', tg.initData);
+}
 function haptic(type){
   if (!tg?.HapticFeedback) return;
   if (type === 'hit') tg.HapticFeedback.impactOccurred('light');
