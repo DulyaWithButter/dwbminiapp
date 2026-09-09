@@ -240,10 +240,135 @@
   }
   nav button.active{ color:var(--gold-2); }
   nav button .dot{ font-size:16px; }
+
+  /* ---- generic screen (Tasks / Friends) ---- */
+  .screen{ flex:1; display:flex; flex-direction:column; overflow-y:auto; }
+  .screen-inner{ padding:18px 20px 12px; display:flex; flex-direction:column; gap:14px; }
+  .screen-title{
+    font-family:'Unbounded',sans-serif;
+    font-size:20px;
+    font-weight:800;
+  }
+
+  .task-card{
+    background:var(--ink-2);
+    border:1.5px solid rgba(255,244,227,.1);
+    border-radius:16px;
+    padding:14px 16px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+  }
+  .task-card .t-title{ font-size:14px; font-weight:700; }
+  .task-card .t-reward{ font-size:12px; color:var(--gold-2); margin-top:2px; }
+  .task-btn{
+    flex:none;
+    font-family:'Unbounded',sans-serif;
+    font-weight:700;
+    font-size:12px;
+    border:none;
+    border-radius:10px;
+    padding:9px 14px;
+    cursor:pointer;
+    color:var(--ink);
+    background:linear-gradient(180deg,var(--gold-2),var(--gold));
+  }
+  .task-btn.claim{ background:var(--orange); color:var(--paper); }
+  .task-btn:disabled{ background:rgba(255,244,227,.1); color:var(--dim); cursor:default; }
+  .task-btn.done{ background:rgba(255,244,227,.1); color:var(--dim); }
+
+  .ref-card{
+    background:var(--ink-2);
+    border:1.5px solid rgba(255,244,227,.1);
+    border-radius:16px;
+    padding:14px 16px;
+  }
+  .ref-label{ font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--dim); margin-bottom:8px; }
+  .ref-link-row{ display:flex; gap:8px; }
+  .ref-link-input{
+    flex:1;
+    min-width:0;
+    background:var(--ink);
+    border:1px solid rgba(255,244,227,.15);
+    border-radius:10px;
+    padding:9px 10px;
+    color:var(--paper);
+    font-size:11px;
+  }
+  .copy-btn-small{
+    flex:none;
+    font-family:'Unbounded',sans-serif;
+    font-weight:700;
+    font-size:11px;
+    border:none;
+    border-radius:10px;
+    padding:9px 12px;
+    cursor:pointer;
+    color:var(--ink);
+    background:var(--gold);
+  }
+  .ref-count{ font-size:14px; font-weight:700; color:var(--paper); }
+  .ref-tiers{ display:flex; flex-direction:column; gap:10px; }
+  .ref-tier{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    background:var(--ink-2);
+    border-radius:12px;
+    padding:11px 14px;
+    font-size:13px;
+    border:1.5px solid rgba(255,244,227,.08);
+  }
+  .ref-tier.reached{ border-color:var(--gold); }
+  .ref-tier .rt-label{ color:var(--paper); }
+  .ref-tier .rt-bonus{ font-weight:800; color:var(--gold-2); }
+  .ref-tier.reached .rt-bonus::after{ content:' ✓'; }
+
+  /* ---- connecting overlay ---- */
+  .connect-overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(11,11,13,.92);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:50;
+    padding:24px;
+  }
+  .connect-box{
+    text-align:center;
+    max-width:280px;
+  }
+  .connect-msg{
+    font-family:'Unbounded',sans-serif;
+    font-size:14px;
+    color:var(--paper);
+    line-height:1.5;
+  }
+  .connect-retry{
+    margin-top:16px;
+    font-family:'Unbounded',sans-serif;
+    font-weight:700;
+    font-size:13px;
+    color:var(--ink);
+    background:var(--gold);
+    border:none;
+    border-radius:12px;
+    padding:10px 20px;
+    cursor:pointer;
+  }
 </style>
 </head>
 <body>
 <div id="app">
+
+  <div class="connect-overlay" id="connect-overlay">
+    <div class="connect-box">
+      <div class="connect-msg" id="connect-msg">Подключаемся к серверу…</div>
+      <button class="connect-retry" id="connect-retry" style="display:none">Повторить</button>
+    </div>
+  </div>
 
   <div class="topbar">
     <div class="topbar-row">
@@ -262,52 +387,73 @@
     </div>
   </div>
 
-  <div class="stage">
-    <canvas id="wheel"></canvas>
-    <div class="center-readout">
-      <span class="streak-n mono" id="streak-val">0</span>
-      <span class="streak-s">streak</span>
-      <span class="mult-tag" id="mult-tag">x1</span>
+  <div class="screen" id="screen-game">
+    <div class="stage">
+      <canvas id="wheel"></canvas>
+      <div class="center-readout">
+        <span class="streak-n mono" id="streak-val">0</span>
+        <span class="streak-s">streak</span>
+        <span class="mult-tag" id="mult-tag">x1</span>
+      </div>
+      <div class="toast" id="toast"></div>
     </div>
-    <div class="toast" id="toast"></div>
+
+    <div class="panel">
+      <div class="timer-row" id="timer-row"></div>
+      <button class="start-btn" id="start-btn">Старт (3:00)</button>
+      <div class="dev-note">DULYA backend · игра синхронизирована с сервером</div>
+    </div>
   </div>
 
-  <div class="panel">
-    <div class="timer-row" id="timer-row"></div>
-    <button class="start-btn" id="start-btn">Старт (3:00)</button>
-    <div class="dev-note">Прототип фронтенда · сессии/кулдаун считаются локально до подключения бэкенда</div>
+  <div class="screen" id="screen-tasks" style="display:none">
+    <div class="screen-inner">
+      <div class="screen-title">Задания</div>
+      <div class="tasks-list" id="tasks-list"></div>
+    </div>
+  </div>
+
+  <div class="screen" id="screen-friends" style="display:none">
+    <div class="screen-inner">
+      <div class="screen-title">Друзья</div>
+      <div class="ref-card">
+        <div class="ref-label">Ваша реферальная ссылка</div>
+        <div class="ref-link-row">
+          <input class="ref-link-input mono" id="ref-link-input" readonly value="…">
+          <button class="copy-btn-small" id="ref-copy-btn">Копировать</button>
+        </div>
+      </div>
+      <div class="ref-count" id="ref-count">0 друзей приглашено</div>
+      <div class="ref-tiers" id="ref-tiers"></div>
+    </div>
   </div>
 
   <nav>
-    <button class="active"><span class="dot">🎯</span>Игра</button>
-    <button disabled><span class="dot">📋</span>Задания</button>
-    <button disabled><span class="dot">👥</span>Друзья</button>
-    <button disabled><span class="dot">👛</span>Кошелёк</button>
-    <button disabled><span class="dot">🏆</span>Лидерборд</button>
+    <button class="nav-btn active" id="nav-game"><span class="dot">🎯</span>Игра</button>
+    <button class="nav-btn" id="nav-tasks"><span class="dot">📋</span>Задания</button>
+    <button class="nav-btn" id="nav-friends"><span class="dot">👥</span>Друзья</button>
+    <button class="nav-btn" disabled><span class="dot">👛</span>Кошелёк</button>
+    <button class="nav-btn" disabled><span class="dot">🏆</span>Лидерборд</button>
   </nav>
 
 </div>
 
 <script>
 /* =========================================================================
-   DULYA — «Покажи дулю»: прототип игровой механики (фронтенд-часть).
+   DULYA — «Покажи дулю»: фронтенд, подключённый к бэкенду.
 
-   ВАЖНО: в проде решения ниже, отмеченные [SERVER], принимает бэкенд.
-   Здесь они симулируются локально, чтобы можно было играть и тестировать
-   без готового API. Когда бэкенд будет готов, эти места меняются на fetch()
-   к эндпоинтам из нашей схемы: /game/session/start, /game/tap, /game/state.
+   Вся игровая логика (какой сектор активен, хит/промах, очки, золото)
+   решает сервер — фронт только рисует то, что он прислал, и ждёт ответа
+   на каждый тап (простой вариант, без оптимистичного UI — так решили).
    ========================================================================= */
+
+// Поменяйте на адрес задеплоенного бэкенда, когда он появится.
+const API_BASE = 'http://localhost:3000';
+// Тестовый id для игры в обычном браузере вне Telegram (когда initData нет).
+const DEV_FALLBACK_USER_ID = 999001;
 
 // ---- Telegram WebApp (безопасно работает и вне Telegram) ----
 const tg = window.Telegram?.WebApp;
-if (tg) {
-  tg.ready();
-  tg.expand();
-  // Временно для отладки: посмотреть initData в консоли (DevTools →
-  // Console), скопировать и проверить на бэкенде через /auth/telegram.
-  // Уберём эту строку, когда подключим фронт к бэкенду по-настоящему.
-  console.log('DULYA initData:', tg.initData);
-}
+if (tg) { tg.ready(); tg.expand(); }
 function haptic(type){
   if (!tg?.HapticFeedback) return;
   if (type === 'hit') tg.HapticFeedback.impactOccurred('light');
@@ -315,45 +461,50 @@ function haptic(type){
   if (type === 'golden') tg.HapticFeedback.notificationOccurred('success');
 }
 
-// ---- Игровые константы (баланс — см. ТЗ, легко подкручивать) ----
+// ---- Визуальные константы (сама игровая логика теперь на сервере —
+// см. src/services/gameEngine.js в бэкенде, значения должны совпадать) ----
 const SECTOR_COUNT = 8;
 const SECTOR_ANGLE = (Math.PI * 2) / SECTOR_COUNT;
-const BASE_SPEED = 0.5;          // рад/сек, скорость вращения колеса
-const SLOW_SPEED = 0.2;          // скорость после промаха
+const BASE_SPEED = 0.5;          // рад/сек, скорость вращения колеса (косметика)
+const SLOW_SPEED = 0.2;          // скорость после промаха (косметика)
 const SLOW_DURATION_MS = 2500;
-const HIGHLIGHT_WINDOW_MS = 950; // сколько времени сектор активен для тапа
-const GOLDEN_CHANCE = 0.005;     // 0.5% — [SERVER] в проде считается на бэке
-const SESSION_MS = 3 * 60 * 1000;
-const COOLDOWN_MS = 3 * 60 * 60 * 1000; // 3 часа до следующей оплачиваемой сессии. [SERVER] в проде отдаёт бэк.
-
-const STREAK_TIERS = [ // [minStreak, multiplier]
-  // x6/x7 достижимы и в платной сессии (реальный тест — 362 тапа за 3 мин).
-  // x8-x10 — марафонские тиры для бесконечной тренировки.
-  [1500, 10], [1000, 9], [500, 8], [200, 7], [100, 6],
-  [30, 5], [15, 3], [5, 2], [0, 1]
-];
-function multiplierFor(streak){
-  for (const [min, mult] of STREAK_TIERS) if (streak >= min) return mult;
-  return 1;
-}
+const SESSION_MS = 3 * 60 * 1000; // только для дефолтного текста кнопки
 
 // ---- Состояние ----
+let apiToken = null;
+let pending = false; // true, пока ждём ответ сервера на тап/промах
+let currentSessionId = null;
+let currentEventId = null; // id sector_event на бэке (нужен только в paid-режиме)
+
 let state = {
-  points: 0,              // очки, идущие в зачёт airdrop (только paid-режим)
-  trainingPoints: 0,      // очки тренировки, на airdrop не влияют
-  tokens: 0,               // реальные токены, пойманные в золотом секторе
+  points: 0,
+  trainingPoints: 0,
+  tokens: 0,
   streak: 0,
-  mode: 'training',       // paid | training — тренировка теперь дефолтный режим, играбельна всегда
+  mode: 'connecting', // connecting | paid | training
   sessionEndAt: null,
-  cooldownUntil: 0,       // пока 0 — кнопка «Старт» активна сразу
+  cooldownUntil: 0,
   rotation: 0,
-  speed: BASE_SPEED,
   slowUntil: 0,
   activeSector: null,
   activeIsGolden: false,
   activeExpiresAt: 0,
-  resolved: true,          // тап по текущему активному сектору уже засчитан?
+  resolved: true,
 };
+
+function sleep(ms){ return new Promise((r) => setTimeout(r, ms)); }
+
+async function apiFetch(path, options = {}){
+  return fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(apiToken ? { Authorization: `Bearer ${apiToken}` } : {}),
+      ...(options.headers || {}),
+    },
+  });
+}
+
 
 // ---- Canvas setup ----
 const canvas = document.getElementById('wheel');
@@ -377,23 +528,21 @@ handImg.onload = () => { handImgReady = true; };
 handImg.src = 'assets/dulya-hand.png';
 
 // Небольшая случайная вариация оттенка золота при каждой генерации —
-// требование ТЗ 4.1 (усложняет пиксельных ботов).
+// требование ТЗ 4.1 (усложняет пиксельных ботов). Чисто визуальное,
+// сам факт «золотой это сектор или нет» решает сервер.
 function goldenHue(){
   const hueShift = (Math.random() * 14) - 7; // ±7°
   return `hsl(${43 + hueShift} 100% ${58 + Math.random()*6}%)`;
 }
 let currentGoldenColor = goldenHue();
 
-function pickNextSector(){
-  let next;
-  do { next = Math.floor(Math.random() * SECTOR_COUNT); }
-  while (next === state.activeSector && SECTOR_COUNT > 1);
-  state.activeSector = next;
+// Применить событие сектора, присланное сервером (из /training/start,
+// /training/tap.next, /session/start.event, /tap.next).
+function applyEvent(event){
+  state.activeSector = event.sectorIndex;
+  state.activeIsGolden = !!event.isGolden;
+  state.activeExpiresAt = new Date(event.expiresAt).getTime();
   state.resolved = false;
-  state.activeExpiresAt = performance.now() + HIGHLIGHT_WINDOW_MS;
-
-  // [SERVER] Вероятность золотого сектора и суточный hard cap считает бэкенд.
-  state.activeIsGolden = (state.mode === 'paid') && Math.random() < GOLDEN_CHANCE;
   if (state.activeIsGolden) currentGoldenColor = goldenHue();
 }
 
@@ -460,25 +609,21 @@ function drawWheel(){
 }
 
 // ---- Игровой цикл ----
-let lastT = performance.now();
-function tick(now){
-  const dt = (now - lastT)/1000;
-  lastT = now;
+let lastFrameT = performance.now();
+function tick(frameNow){
+  const dt = (frameNow - lastFrameT)/1000;
+  lastFrameT = frameNow;
+  const now = Date.now(); // эпоха — сравнимо с таймштампами от сервера
 
   if (state.mode === 'paid' || state.mode === 'training'){
     const speed = (now < state.slowUntil) ? SLOW_SPEED : BASE_SPEED;
     state.rotation += speed * dt;
 
-    if (state.activeSector === null){
-      pickNextSector();
-    } else if (!state.resolved && now > state.activeExpiresAt){
-      // пропуск окна — миссис
-      registerMiss();
-      pickNextSector();
+    if (!pending && state.activeSector !== null && !state.resolved && now > state.activeExpiresAt){
+      handleTimeout();
     }
-
-    if (state.mode === 'paid' && now > state.sessionEndAt){
-      endPaidSession();
+    if (!pending && state.mode === 'paid' && state.sessionEndAt && now > state.sessionEndAt){
+      handleSessionEnd();
     }
   }
 
@@ -486,10 +631,10 @@ function tick(now){
   updateHud();
   requestAnimationFrame(tick);
 }
-requestAnimationFrame(tick);
 
 // ---- Ввод (тап) ----
 canvas.addEventListener('pointerdown', (e) => {
+  if (pending) return; // ждём предыдущий запрос — лишние тапы игнорируем
   if (state.mode !== 'paid' && state.mode !== 'training') return;
   if (state.activeSector === null || state.resolved) return;
 
@@ -505,66 +650,146 @@ canvas.addEventListener('pointerdown', (e) => {
   local = ((local % (Math.PI*2)) + Math.PI*2) % (Math.PI*2);
   const tappedSector = Math.floor(local / SECTOR_ANGLE);
 
-  // [SERVER] В проде здесь вместо локальной проверки — POST /game/tap
-  // c {session_token, sector_event_id, tap_at}, ответ определяет hit/miss.
-  if (tappedSector === state.activeSector){
-    registerHit();
-  } else {
-    registerMiss();
-  }
-  pickNextSector();
+  resolveTap(tappedSector);
 });
 
-function registerHit(){
-  state.resolved = true;
-  state.streak += 1;
-  const mult = multiplierFor(state.streak);
-  const gained = mult;
+function handleTimeout(){
+  // Окно истекло, тапа не было — это тоже промах, сообщаем серверу тем же
+  // путём, просто с заведомо невалидным индексом сектора.
+  resolveTap(-1);
+}
 
-  if (state.mode === 'paid') state.points += gained;
-  else state.trainingPoints += gained;
+// Единая точка обработки тапа/промаха — ждём сервер, он решает hit/miss,
+// начисляет очки, проверяет золото и присылает следующий активный сектор.
+async function resolveTap(sectorIndex){
+  pending = true;
+  state.resolved = true; // визуально «гасим» текущий сектор сразу, ждём ответ
 
-  showMultTag(mult);
-  haptic('hit');
+  try {
+    let res, data;
+    if (state.mode === 'paid'){
+      res = await apiFetch('/game/tap', {
+        method: 'POST',
+        body: JSON.stringify({ sessionId: currentSessionId, sectorEventId: currentEventId, sectorIndex }),
+      });
+    } else {
+      res = await apiFetch('/game/training/tap', {
+        method: 'POST',
+        body: JSON.stringify({ sectorIndex }),
+      });
+    }
 
-  if (state.activeIsGolden){
-    // [SERVER] Реальная сумма и суточный hard cap — на бэке. Тут только
-    // визуальный фидбек; фактическое начисление токенов пишется в
-    // golden_drops и выплачивается батчем (см. нашу схему).
-    const amount = 1 + Math.floor(Math.random()*5);
-    state.tokens += amount;
-    showToast(`✨ Золотой сектор! +${amount} DULYA`);
-    haptic('golden');
+    if (!res.ok){
+      // Сессия на сервере уже закрылась/не найдена и т.п. — просто
+      // подтягиваем актуальное состояние и не бьём игрока ошибкой.
+      await refreshState();
+      if (state.mode === 'paid') await handleSessionEnd();
+      else await beginTraining();
+      return;
+    }
+
+    data = await res.json();
+
+    if (data.hit){
+      state.streak = data.streak;
+      if (state.mode === 'paid') state.points += data.gained;
+      else state.trainingPoints += data.gained;
+      showMultTag(data.multiplier);
+      haptic('hit');
+
+      if (data.goldenAmount){
+        state.tokens += data.goldenAmount;
+        showToast(`✨ Золотой сектор! +${data.goldenAmount} DULYA`);
+        haptic('golden');
+      } else if (data.goldenCapped){
+        showToast('Золото на сегодня закончилось 🌙');
+      }
+    } else {
+      state.streak = 0;
+      state.slowUntil = Date.now() + SLOW_DURATION_MS;
+      hideMultTag();
+      haptic('miss');
+    }
+
+    if (data.next){
+      currentEventId = data.next.id || null; // есть только в paid-режиме
+      applyEvent(data.next);
+    }
+  } catch (err) {
+    // Сеть моргнула — не роняем игру, попробуем на следующем кадре снова
+    // через обычный таймаут (activeExpiresAt уже в прошлом).
+    console.error('resolveTap failed', err);
+  } finally {
+    pending = false;
   }
 }
 
-function registerMiss(){
-  state.resolved = true;
-  state.streak = 0;
-  state.slowUntil = performance.now() + SLOW_DURATION_MS;
-  hideMultTag();
-  haptic('miss');
-}
-
-// ---- Сессии / кулдаун (локальная симуляция, см. шапку файла) ----
+// ---- Сессии ----
 const startBtn = document.getElementById('start-btn');
 
-startBtn.addEventListener('click', () => {
-  if (performance.now() < state.cooldownUntil) return;
-  // [SERVER] В проде: POST /game/session/start → бэк проверяет кулдаун
-  // и присылает session_token + расписание sector_events.
-  state.mode = 'paid';
-  state.sessionEndAt = performance.now() + SESSION_MS;
-  state.activeSector = null;
-  state.streak = 0;
+startBtn.addEventListener('click', async () => {
+  if (pending || Date.now() < state.cooldownUntil || state.mode === 'paid') return;
+  pending = true;
+  try {
+    const res = await apiFetch('/game/session/start', { method: 'POST' });
+    if (res.status === 429){
+      const data = await res.json();
+      state.cooldownUntil = new Date(data.cooldownUntil).getTime();
+      return;
+    }
+    if (!res.ok) return;
+
+    const data = await res.json();
+    currentSessionId = data.sessionId;
+    currentEventId = data.event.id;
+    state.mode = 'paid';
+    state.sessionEndAt = new Date(data.endsAt).getTime();
+    state.streak = 0;
+    applyEvent(data.event);
+  } catch (err) {
+    console.error('session/start failed', err);
+  } finally {
+    pending = false;
+  }
 });
 
-function endPaidSession(){
-  // Сессия закончилась — сразу возвращаемся в тренировку (она играбельна
-  // всегда), а «Старт» блокируется кулдауном на 3 часа.
+async function handleSessionEnd(){
+  pending = true;
+  try {
+    if (currentSessionId){
+      await apiFetch('/game/session/end', {
+        method: 'POST',
+        body: JSON.stringify({ sessionId: currentSessionId }),
+      });
+    }
+    currentSessionId = null;
+    currentEventId = null;
+    state.sessionEndAt = null;
+    await refreshState(); // подтягиваем актуальный cooldownUntil/очки с сервера
+    await beginTraining();
+  } catch (err) {
+    console.error('session/end failed', err);
+  } finally {
+    pending = false;
+  }
+}
+
+async function beginTraining(){
+  const res = await apiFetch('/game/training/start', { method: 'POST' });
+  const data = await res.json();
+  currentEventId = null;
   state.mode = 'training';
-  state.activeSector = null;
-  state.cooldownUntil = performance.now() + COOLDOWN_MS;
+  state.streak = 0;
+  applyEvent(data.event);
+}
+
+async function refreshState(){
+  const res = await apiFetch('/game/state');
+  const data = await res.json();
+  state.points = data.points;
+  state.trainingPoints = data.trainingPoints;
+  state.tokens = data.tokens;
+  state.cooldownUntil = data.cooldownUntil ? new Date(data.cooldownUntil).getTime() : 0;
 }
 
 function fmtClock(ms){
@@ -600,7 +825,7 @@ function updateHud(){
   statKarma.classList.toggle('dim', state.mode !== 'paid');
   statPotential.classList.toggle('dim', state.mode !== 'training');
 
-  const now = performance.now();
+  const now = Date.now();
   const inCooldown = now < state.cooldownUntil;
 
   // таймер сессии / кулдаун / кнопка старта
@@ -641,8 +866,215 @@ function showToast(text){
   toastTimeout = setTimeout(() => toast.classList.remove('show'), 1800);
 }
 
+// ---- Навигация между экранами ----
+const screens = {
+  game: document.getElementById('screen-game'),
+  tasks: document.getElementById('screen-tasks'),
+  friends: document.getElementById('screen-friends'),
+};
+const navGame = document.getElementById('nav-game');
+const navTasks = document.getElementById('nav-tasks');
+const navFriends = document.getElementById('nav-friends');
+
+function showScreen(name){
+  for (const key in screens) screens[key].style.display = (key === name) ? 'flex' : 'none';
+  navGame.classList.toggle('active', name === 'game');
+  navTasks.classList.toggle('active', name === 'tasks');
+  navFriends.classList.toggle('active', name === 'friends');
+
+  if (name === 'tasks') loadTasks();
+  if (name === 'friends') loadReferral();
+}
+navGame.addEventListener('click', () => showScreen('game'));
+navTasks.addEventListener('click', () => showScreen('tasks'));
+navFriends.addEventListener('click', () => showScreen('friends'));
+
+// ---- Задания ----
+const tasksList = document.getElementById('tasks-list');
+
+async function loadTasks(){
+  tasksList.innerHTML = '<div class="dev-note">Загрузка…</div>';
+  try {
+    const res = await apiFetch('/game/tasks');
+    const data = await res.json();
+    renderTasks(data.tasks);
+  } catch (err) {
+    tasksList.innerHTML = '<div class="dev-note">Не удалось загрузить задания.</div>';
+  }
+}
+
+function renderTasks(tasks){
+  tasksList.innerHTML = '';
+  for (const task of tasks){
+    const card = document.createElement('div');
+    card.className = 'task-card';
+
+    const info = document.createElement('div');
+    info.innerHTML = `<div class="t-title">${task.title}</div><div class="t-reward">+${task.reward} DULYA</div>`;
+
+    const btn = document.createElement('button');
+    if (task.completed){
+      btn.className = 'task-btn done';
+      btn.textContent = 'Готово ✓';
+      btn.disabled = true;
+    } else {
+      btn.className = 'task-btn';
+      btn.textContent = 'Перейти';
+      btn.addEventListener('click', () => handleTaskButton(task, btn), { once: false });
+    }
+
+    card.append(info, btn);
+    tasksList.appendChild(card);
+  }
+}
+
+// Первый клик — открыть ссылку/канал. Второй клик (кнопка становится
+// «Забрать») — попытаться зачесть задание на сервере.
+function handleTaskButton(task, btn){
+  if (btn.dataset.opened !== 'true'){
+    const url = task.kind === 'channel' ? `https://t.me/${task.target.replace(/^@/, '')}` : task.target;
+    if (tg?.openLink) tg.openLink(url); else window.open(url, '_blank');
+    btn.dataset.opened = 'true';
+    btn.textContent = 'Забрать';
+    btn.className = 'task-btn claim';
+    return;
+  }
+  claimTask(task.key, btn);
+}
+
+async function claimTask(key, btn){
+  btn.disabled = true;
+  try {
+    const res = await apiFetch(`/game/tasks/${key}/claim`, { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok){
+      btn.disabled = false;
+      if (data.error === 'not_subscribed'){
+        showToast('Подписка ещё не найдена — попробуйте снова');
+      } else {
+        showToast('Не получилось забрать награду');
+      }
+      return;
+    }
+    state.tokens += data.reward;
+    btn.textContent = 'Готово ✓';
+    btn.className = 'task-btn done';
+    showToast(`+${data.reward} DULYA`);
+  } catch (err) {
+    btn.disabled = false;
+    showToast('Ошибка сети, попробуйте ещё раз');
+  }
+}
+
+// ---- Друзья / рефералы ----
+const refLinkInput = document.getElementById('ref-link-input');
+const refCopyBtn = document.getElementById('ref-copy-btn');
+const refCount = document.getElementById('ref-count');
+const refTiers = document.getElementById('ref-tiers');
+
+const REFERRAL_TIERS_DISPLAY = [
+  { need: 1, label: '1 друг', bonus: '+10 сек к сессии' },
+  { need: 5, label: '5 друзей', bonus: '+30 сек к сессии' },
+  { need: 15, label: '15 друзей', bonus: '+1 мин к сессии' },
+];
+
+async function loadReferral(){
+  refLinkInput.value = 'Загрузка…';
+  refCount.textContent = '';
+  refTiers.innerHTML = '';
+  try {
+    const res = await apiFetch('/game/referral');
+    const data = await res.json();
+    refLinkInput.value = data.link || 'Ссылка недоступна (не настроен бот)';
+    refCount.textContent = `${data.referralCount} ${pluralFriends(data.referralCount)} приглашено`;
+
+    refTiers.innerHTML = '';
+    for (const tier of REFERRAL_TIERS_DISPLAY){
+      const row = document.createElement('div');
+      row.className = 'ref-tier' + (data.referralCount >= tier.need ? ' reached' : '');
+      row.innerHTML = `<span class="rt-label">${tier.label}</span><span class="rt-bonus">${tier.bonus}</span>`;
+      refTiers.appendChild(row);
+    }
+  } catch (err) {
+    refLinkInput.value = 'Не удалось загрузить';
+  }
+}
+
+function pluralFriends(n){
+  const mod10 = n % 10, mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return 'друг';
+  if ([2,3,4].includes(mod10) && ![12,13,14].includes(mod100)) return 'друга';
+  return 'друзей';
+}
+
+refCopyBtn.addEventListener('click', () => {
+  navigator.clipboard.writeText(refLinkInput.value).then(() => {
+    refCopyBtn.textContent = 'Скопировано';
+    setTimeout(() => { refCopyBtn.textContent = 'Копировать'; }, 1500);
+  });
+});
+
 // ---- init ----
 resizeCanvas();
+
+// ---- Запуск: ждём сервер → авторизуемся → тянем состояние → тренировка ----
+const connectOverlay = document.getElementById('connect-overlay');
+const connectMsg = document.getElementById('connect-msg');
+const connectRetry = document.getElementById('connect-retry');
+
+async function waitForServer(){
+  for (let attempt = 1; attempt <= 5; attempt++){
+    try {
+      const res = await apiFetch('/health');
+      if (res.ok) return true;
+    } catch (err) { /* сервер ещё не проснулся — пробуем ещё раз */ }
+    connectMsg.textContent = attempt < 5
+      ? `Будим сервер… (${attempt}/5)`
+      : 'Сервер не отвечает.';
+    if (attempt < 5) await sleep(4000);
+  }
+  return false;
+}
+
+async function boot(){
+  connectRetry.style.display = 'none';
+  connectOverlay.style.display = 'flex';
+  connectMsg.textContent = 'Подключаемся к серверу…';
+
+  const serverOk = await waitForServer();
+  if (!serverOk){
+    connectMsg.textContent = 'Не получилось достучаться до сервера.';
+    connectRetry.style.display = 'inline-block';
+    return;
+  }
+
+  try {
+    connectMsg.textContent = 'Входим…';
+    const initData = tg?.initData;
+    const authRes = await apiFetch('/auth/telegram', {
+      method: 'POST',
+      body: JSON.stringify(initData ? { initData } : { devUserId: DEV_FALLBACK_USER_ID }),
+    });
+    if (!authRes.ok) throw new Error('auth_failed');
+    const authData = await authRes.json();
+    apiToken = authData.token;
+
+    await refreshState();
+    await beginTraining();
+  } catch (err) {
+    console.error('boot failed', err);
+    connectMsg.textContent = 'Не получилось войти. Проверьте бэкенд.';
+    connectRetry.style.display = 'inline-block';
+    return;
+  }
+
+  connectOverlay.style.display = 'none';
+  requestAnimationFrame(tick);
+}
+
+connectRetry.addEventListener('click', boot);
+boot();
+
 </script>
 </body>
 </html>
