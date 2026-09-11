@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Покажи дулю — DULYA Mini App</title>
+<link rel="icon" href="assets/logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800;900&family=Manrope:wght@500;700;800&family=JetBrains+Mono:wght@600;700&display=swap" rel="stylesheet">
 <!-- Telegram WebApp API. Вне Telegram просто не найдётся — код ниже это учитывает. -->
@@ -58,7 +59,7 @@
     flex-direction:column;
     align-items:flex-start;
     justify-content:center;
-    padding:14px 14px 10px;
+    padding:9px 14px;
     transition:opacity .25s ease, background-color .25s ease;
   }
   .stat.left{ border-right:1px solid rgba(11,11,13,.18); }
@@ -70,7 +71,7 @@
     flex-direction:row;
     align-items:center;
     justify-content:center;
-    gap:8px;
+    gap:10px;
   }
   .stat.dim{ opacity:.45; background-color:rgba(11,11,13,.16); }
   .stat .label{
@@ -85,14 +86,14 @@
     color:var(--ink);
   }
   .token-icon{
-    width:22px;
-    height:22px;
-    border-radius:7px;
+    width:40px;
+    height:40px;
+    border-radius:11px;
     object-fit:cover;
     background:rgba(11,11,13,.1);
-    padding:2px;
+    padding:3px;
   }
-  .stat.center .val{ font-size:19px; }
+  .stat.center .val{ font-size:20px; }
 
   /* ---- game stage ---- */
   .stage{
@@ -172,12 +173,38 @@
   .timer-row{
     display:flex;
     align-items:center;
+    justify-content:center;
     gap:10px;
-    font-size:13px;
+    font-size:12px;
     color:var(--dim);
-    min-height:18px;
+    min-height:16px;
+    padding:7px 14px;
+    background:var(--ink-2);
   }
   .timer-row .mono{ color:var(--paper); font-weight:700; }
+
+  .refresh-row{
+    display:flex;
+    flex-direction:row;
+    gap:8px;
+    width:100%;
+    max-width:320px;
+    margin-top:10px;
+  }
+  .refresh-btn{
+    flex:1;
+    min-width:0;
+    font-family:'Manrope',sans-serif;
+    font-weight:700;
+    font-size:11px;
+    color:var(--dim);
+    background:transparent;
+    border:1.5px solid rgba(255,244,227,.15);
+    border-radius:11px;
+    padding:9px 6px;
+    cursor:pointer;
+  }
+  .refresh-btn.ton{ border-color:rgba(0,152,234,.35); }
 
   .start-btn{
     width:100%;
@@ -423,6 +450,7 @@
       </div>
     </div>
   </div>
+  <div class="timer-row" id="timer-row"></div>
 
   <div class="screen" id="screen-game">
     <div class="stage">
@@ -436,8 +464,11 @@
     </div>
 
     <div class="panel">
-      <div class="timer-row" id="timer-row"></div>
       <button class="start-btn" id="start-btn">Старт (3:00)</button>
+      <div class="refresh-row">
+        <button class="refresh-btn" id="refresh-karma-btn">Обновить сессию · 5000 кармы</button>
+        <button class="refresh-btn ton" id="refresh-ton-btn">Обновить сессию · 0.01 TON</button>
+      </div>
       <div class="dev-note">DULYA backend · игра синхронизирована с сервером</div>
     </div>
   </div>
@@ -534,6 +565,37 @@ function haptic(type){
   if (type === 'golden') tg.HapticFeedback.notificationOccurred('success');
 }
 
+// ---- Звук (синтезируем сами через Web Audio, без внешних файлов) ----
+let audioCtx = null;
+function ensureAudio(){
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+function playTone(freq, duration, type = 'sine', peak = 0.15, delay = 0){
+  const ctx = ensureAudio();
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = type;
+  osc.frequency.value = freq;
+  const t0 = ctx.currentTime + delay;
+  gain.gain.setValueAtTime(0, t0);
+  gain.gain.linearRampToValueAtTime(peak, t0 + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
+  osc.connect(gain).connect(ctx.destination);
+  osc.start(t0);
+  osc.stop(t0 + duration + 0.02);
+}
+function sfx(type){
+  if (type === 'hit') playTone(880, 0.08, 'sine', 0.12);
+  else if (type === 'miss') playTone(150, 0.16, 'sawtooth', 0.08);
+  else if (type === 'golden'){
+    playTone(660, 0.1, 'sine', 0.15, 0);
+    playTone(880, 0.1, 'sine', 0.15, 0.08);
+    playTone(1320, 0.14, 'sine', 0.18, 0.16);
+  }
+}
+
 // ---- Визуальные константы (сама игровая логика теперь на сервере —
 // см. src/services/gameEngine.js в бэкенде, значения должны совпадать) ----
 const SECTOR_COUNT = 8;
@@ -563,6 +625,7 @@ let state = {
   activeIsGolden: false,
   activeExpiresAt: 0,
   resolved: true,
+  sessionBonusSec: 0, // бонус к длине сессии от рефералов (секунды)
 };
 
 function sleep(ms){ return new Promise((r) => setTimeout(r, ms)); }
@@ -723,6 +786,7 @@ canvas.addEventListener('pointerdown', (e) => {
   local = ((local % (Math.PI*2)) + Math.PI*2) % (Math.PI*2);
   const tappedSector = Math.floor(local / SECTOR_ANGLE);
 
+  ensureAudio(); // резюмим AudioContext синхронно в жесте тапа — иначе браузер не даст играть звук
   resolveTap(tappedSector);
 });
 
@@ -774,14 +838,17 @@ async function resolveTap(sectorIndex){
         state.tokens += data.goldenAmount;
         showToast(`✨ Золотой сектор! +${data.goldenAmount} DULYA`);
         haptic('golden');
-      } else if (data.goldenCapped){
-        showToast('Золото на сегодня закончилось 🌙');
+        sfx('golden');
+      } else {
+        sfx('hit');
+        if (data.goldenCapped) showToast('Золото на сегодня закончилось 🌙');
       }
     } else {
       state.streak = 0;
       state.slowUntil = Date.now() + SLOW_DURATION_MS;
       hideMultTag();
       haptic('miss');
+      if (sectorIndex !== -1) sfx('miss'); // -1 = пропуск окна без тапа, звук не нужен
     }
 
     if (data.next){
@@ -826,6 +893,15 @@ startBtn.addEventListener('click', async () => {
   }
 });
 
+// Кнопки «обновить сессию» — пока задумка, функциональность не
+// реализована (по просьбе — сначала нужно продумать механику).
+document.getElementById('refresh-karma-btn').addEventListener('click', () => {
+  showToast('Скоро — ещё в разработке');
+});
+document.getElementById('refresh-ton-btn').addEventListener('click', () => {
+  showToast('Скоро — ещё в разработке');
+});
+
 async function handleSessionEnd(){
   pending = true;
   try {
@@ -863,6 +939,12 @@ async function refreshState(){
   state.trainingPoints = data.trainingPoints;
   state.tokens = data.tokens;
   state.cooldownUntil = data.cooldownUntil ? new Date(data.cooldownUntil).getTime() : 0;
+
+  try {
+    const refRes = await apiFetch('/game/referral');
+    const refData = await refRes.json();
+    state.sessionBonusSec = refData.bonusSeconds || 0;
+  } catch (err) { /* не критично, просто покажем базовое время без бонуса */ }
 }
 
 function fmtClock(ms){
@@ -914,7 +996,7 @@ function updateHud(){
     } else {
       timerRow.innerHTML = `Бесконечный режим · очки не идут в Airdrop`;
       startBtn.disabled = false;
-      startBtn.textContent = 'Старт (3:00)';
+      startBtn.textContent = `Старт (${fmtClock(SESSION_MS + state.sessionBonusSec*1000)})`;
     }
   }
 }
@@ -955,6 +1037,7 @@ const navLeaderboard = document.getElementById('nav-leaderboard');
 
 function showScreen(name){
   for (const key in screens) screens[key].style.display = (key === name) ? 'flex' : 'none';
+  timerRow.style.display = (name === 'game') ? 'block' : 'none';
   navGame.classList.toggle('active', name === 'game');
   navTasks.classList.toggle('active', name === 'tasks');
   navFriends.classList.toggle('active', name === 'friends');
@@ -1070,6 +1153,7 @@ async function loadReferral(){
     const data = await res.json();
     refLinkInput.value = data.link || 'Ссылка недоступна (не настроен бот)';
     refCount.textContent = `${data.referralCount} ${pluralFriends(data.referralCount)} приглашено`;
+    state.sessionBonusSec = data.bonusSeconds || 0;
 
     refTiers.innerHTML = '';
     for (const tier of REFERRAL_TIERS_DISPLAY){
