@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800;900&family=Manrope:wght@500;700;800&family=JetBrains+Mono:wght@600;700&display=swap" rel="stylesheet">
 <!-- Telegram WebApp API. Вне Telegram просто не найдётся — код ниже это учитывает. -->
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
 <style>
   :root{
     --ink:#0b0b0d;
@@ -325,6 +326,42 @@
   .ref-tier .rt-bonus{ font-weight:800; color:var(--gold-2); }
   .ref-tier.reached .rt-bonus::after{ content:' ✓'; }
 
+  .wallet-card{
+    background:var(--ink-2);
+    border:1.5px solid rgba(255,244,227,.1);
+    border-radius:16px;
+    padding:16px;
+    text-align:center;
+  }
+  .wallet-msg{ font-size:13px; color:rgba(255,244,227,.8); margin-bottom:14px; line-height:1.5; }
+  .wallet-addr{
+    font-size:12px;
+    word-break:break-all;
+    background:var(--ink);
+    border-radius:10px;
+    padding:10px;
+    margin-top:4px;
+  }
+  .wallet-note{ font-size:12px; color:var(--dim); line-height:1.5; }
+
+  .lb-section{ display:flex; flex-direction:column; gap:8px; }
+  .lb-heading{ font-size:13px; font-weight:700; color:var(--gold-2); }
+  .lb-list{ display:flex; flex-direction:column; gap:6px; }
+  .lb-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    background:var(--ink-2);
+    border-radius:10px;
+    padding:9px 12px;
+    font-size:13px;
+  }
+  .lb-rank{ font-family:'Unbounded',sans-serif; font-weight:800; color:var(--dim); width:18px; }
+  .lb-row:nth-child(1) .lb-rank{ color:var(--gold-2); }
+  .lb-name{ flex:1; color:var(--paper); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .lb-value{ font-family:'JetBrains Mono',monospace; font-weight:700; color:var(--orange); }
+  .lb-empty{ font-size:12px; color:var(--dim); padding:4px 2px; }
+
   /* ---- connecting overlay ---- */
   .connect-overlay{
     position:fixed;
@@ -427,12 +464,48 @@
     </div>
   </div>
 
+  <div class="screen" id="screen-wallet" style="display:none">
+    <div class="screen-inner">
+      <div class="screen-title">Кошелёк</div>
+      <div class="wallet-card">
+        <div id="wallet-disconnected">
+          <div class="wallet-msg">Привяжите TON-кошелёк, чтобы участвовать в итоговом Airdrop.</div>
+          <div id="ton-connect-button"></div>
+        </div>
+        <div id="wallet-connected" style="display:none">
+          <div class="ref-label">Привязанный кошелёк</div>
+          <div class="wallet-addr mono" id="wallet-addr">—</div>
+          <button class="task-btn" id="wallet-disconnect-btn" style="margin-top:10px">Отвязать</button>
+        </div>
+      </div>
+      <div class="wallet-note">Один кошелёк можно привязать только к одному аккаунту. В планах — внутриигровые покупки за DULYA.</div>
+    </div>
+  </div>
+
+  <div class="screen" id="screen-leaderboard" style="display:none">
+    <div class="screen-inner">
+      <div class="screen-title">Лидерборд</div>
+      <div class="lb-section">
+        <div class="lb-heading">🪙 Больше всего DULYA</div>
+        <div class="lb-list" id="lb-tokens"></div>
+      </div>
+      <div class="lb-section">
+        <div class="lb-heading">⚡ Лучшая карма за сессию</div>
+        <div class="lb-list" id="lb-session"></div>
+      </div>
+      <div class="lb-section">
+        <div class="lb-heading">🔥 Лучший streak</div>
+        <div class="lb-list" id="lb-streak"></div>
+      </div>
+    </div>
+  </div>
+
   <nav>
     <button class="nav-btn active" id="nav-game"><span class="dot">🎯</span>Игра</button>
     <button class="nav-btn" id="nav-tasks"><span class="dot">📋</span>Задания</button>
     <button class="nav-btn" id="nav-friends"><span class="dot">👥</span>Друзья</button>
-    <button class="nav-btn" disabled><span class="dot">👛</span>Кошелёк</button>
-    <button class="nav-btn" disabled><span class="dot">🏆</span>Лидерборд</button>
+    <button class="nav-btn" id="nav-wallet"><span class="dot">👛</span>Кошелёк</button>
+    <button class="nav-btn" id="nav-leaderboard"><span class="dot">🏆</span>Лидерборд</button>
   </nav>
 
 </div>
@@ -871,23 +944,33 @@ const screens = {
   game: document.getElementById('screen-game'),
   tasks: document.getElementById('screen-tasks'),
   friends: document.getElementById('screen-friends'),
+  wallet: document.getElementById('screen-wallet'),
+  leaderboard: document.getElementById('screen-leaderboard'),
 };
 const navGame = document.getElementById('nav-game');
 const navTasks = document.getElementById('nav-tasks');
 const navFriends = document.getElementById('nav-friends');
+const navWallet = document.getElementById('nav-wallet');
+const navLeaderboard = document.getElementById('nav-leaderboard');
 
 function showScreen(name){
   for (const key in screens) screens[key].style.display = (key === name) ? 'flex' : 'none';
   navGame.classList.toggle('active', name === 'game');
   navTasks.classList.toggle('active', name === 'tasks');
   navFriends.classList.toggle('active', name === 'friends');
+  navWallet.classList.toggle('active', name === 'wallet');
+  navLeaderboard.classList.toggle('active', name === 'leaderboard');
 
   if (name === 'tasks') loadTasks();
   if (name === 'friends') loadReferral();
+  if (name === 'wallet') loadWallet();
+  if (name === 'leaderboard') loadLeaderboard();
 }
 navGame.addEventListener('click', () => showScreen('game'));
 navTasks.addEventListener('click', () => showScreen('tasks'));
 navFriends.addEventListener('click', () => showScreen('friends'));
+navWallet.addEventListener('click', () => showScreen('wallet'));
+navLeaderboard.addEventListener('click', () => showScreen('leaderboard'));
 
 // ---- Задания ----
 const tasksList = document.getElementById('tasks-list');
@@ -1013,6 +1096,108 @@ refCopyBtn.addEventListener('click', () => {
     setTimeout(() => { refCopyBtn.textContent = 'Копировать'; }, 1500);
   });
 });
+
+// ---- Кошелёк (TonConnect) ----
+// tonconnect-manifest.json должен лежать рядом с index.html на хостинге
+// (см. файл в репозитории) — TonConnect требует его по абсолютному URL.
+const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+  manifestUrl: `${location.origin}${location.pathname.replace(/\/?$/, '/')}tonconnect-manifest.json`,
+  buttonRootId: 'ton-connect-button',
+});
+
+const walletDisconnected = document.getElementById('wallet-disconnected');
+const walletConnected = document.getElementById('wallet-connected');
+const walletAddrEl = document.getElementById('wallet-addr');
+const walletDisconnectBtn = document.getElementById('wallet-disconnect-btn');
+
+function shortAddr(addr){
+  return addr.length > 14 ? `${addr.slice(0,6)}…${addr.slice(-6)}` : addr;
+}
+
+async function loadWallet(){
+  try {
+    const res = await apiFetch('/game/wallet');
+    const data = await res.json();
+    renderWallet(data.address);
+  } catch (err) { /* тихо игнорируем, TonConnect UI сам покажет статус подключения */ }
+}
+
+function renderWallet(address){
+  if (address){
+    walletDisconnected.style.display = 'none';
+    walletConnected.style.display = 'block';
+    walletAddrEl.textContent = shortAddr(address);
+  } else {
+    walletDisconnected.style.display = 'block';
+    walletConnected.style.display = 'none';
+  }
+}
+
+// Срабатывает при подключении кошелька через виджет TonConnect —
+// отправляем адрес на бэкенд для привязки (без проверки ton_proof, см.
+// комментарий в backend/routes/game.js — это сознательное упрощение MVP).
+tonConnectUI.onStatusChange(async (wallet) => {
+  if (!wallet){ renderWallet(null); return; }
+  const address = wallet.account.address;
+  try {
+    const res = await apiFetch('/game/wallet/link', {
+      method: 'POST',
+      body: JSON.stringify({ address }),
+    });
+    if (!res.ok){
+      const data = await res.json();
+      if (data.error === 'wallet_already_linked'){
+        showToast('Этот кошелёк уже привязан к другому аккаунту');
+      }
+      await tonConnectUI.disconnect();
+      renderWallet(null);
+      return;
+    }
+    renderWallet(address);
+  } catch (err) {
+    showToast('Не удалось привязать кошелёк');
+  }
+});
+
+walletDisconnectBtn.addEventListener('click', async () => {
+  await tonConnectUI.disconnect();
+  try { await apiFetch('/game/wallet/unlink', { method: 'POST' }); } catch (err) {}
+  renderWallet(null);
+});
+
+// ---- Лидерборд ----
+async function loadLeaderboard(){
+  const lists = {
+    tokens: document.getElementById('lb-tokens'),
+    bestSession: document.getElementById('lb-session'),
+    bestStreak: document.getElementById('lb-streak'),
+  };
+  for (const key in lists) lists[key].innerHTML = '<div class="lb-empty">Загрузка…</div>';
+
+  try {
+    const res = await apiFetch('/game/leaderboard');
+    const data = await res.json();
+    renderLbList(lists.tokens, data.tokens);
+    renderLbList(lists.bestSession, data.bestSession);
+    renderLbList(lists.bestStreak, data.bestStreak);
+  } catch (err) {
+    for (const key in lists) lists[key].innerHTML = '<div class="lb-empty">Не удалось загрузить.</div>';
+  }
+}
+
+function renderLbList(container, entries){
+  if (!entries || entries.length === 0){
+    container.innerHTML = '<div class="lb-empty">Пока никто не отметился.</div>';
+    return;
+  }
+  container.innerHTML = '';
+  entries.forEach((entry, i) => {
+    const row = document.createElement('div');
+    row.className = 'lb-row';
+    row.innerHTML = `<span class="lb-rank">${i+1}</span><span class="lb-name">${entry.name}</span><span class="lb-value">${entry.value}</span>`;
+    container.appendChild(row);
+  });
+}
 
 // ---- init ----
 resizeCanvas();
