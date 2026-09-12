@@ -45,9 +45,27 @@
 
   /* ---- top bar ---- */
   .topbar{
+    position:relative;
     background:linear-gradient(180deg,var(--gold-2),var(--gold));
     color:var(--ink);
     padding:0;
+  }
+  .mute-btn{
+    position:absolute;
+    top:calc(100% + 6px);
+    right:12px;
+    width:26px;
+    height:26px;
+    border-radius:50%;
+    border:none;
+    background:var(--ink-2);
+    color:var(--paper);
+    font-size:13px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    z-index:5;
   }
   .topbar-row{
     display:grid;
@@ -194,17 +212,21 @@
   .refresh-btn{
     flex:1;
     min-width:0;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:2px;
     font-family:'Manrope',sans-serif;
-    font-weight:700;
-    font-size:11px;
-    color:var(--dim);
     background:transparent;
     border:1.5px solid rgba(255,244,227,.15);
     border-radius:11px;
-    padding:9px 6px;
+    padding:8px 6px;
     cursor:pointer;
   }
+  .refresh-btn .rb-l1{ font-size:10px; font-weight:600; color:rgba(255,244,227,.6); }
+  .refresh-btn .rb-l2{ font-size:12.5px; font-weight:800; color:var(--orange); }
   .refresh-btn.ton{ border-color:rgba(0,152,234,.35); }
+  .refresh-btn:disabled{ opacity:.5; cursor:default; }
 
   .start-btn{
     width:100%;
@@ -258,16 +280,16 @@
     border:none;
     color:var(--dim);
     font-family:'Manrope',sans-serif;
-    font-size:9.5px;
+    font-size:8.3px;
     font-weight:700;
-    padding:10px 2px 9px;
+    padding:9px 1px 8px;
     display:flex;
     flex-direction:column;
     align-items:center;
-    gap:4px;
+    gap:3px;
   }
   nav button.active{ color:var(--gold-2); }
-  nav button .dot{ font-size:16px; }
+  nav button .dot{ font-size:14px; }
 
   /* ---- generic screen (Tasks / Friends) ---- */
   .screen{ flex:1; display:flex; flex-direction:column; overflow-y:auto; }
@@ -435,6 +457,7 @@
   </div>
 
   <div class="topbar">
+    <button class="mute-btn" id="mute-btn">🔊</button>
     <div class="topbar-row">
       <div class="stat left" id="stat-karma">
         <span class="label">Карма</span>
@@ -466,8 +489,14 @@
     <div class="panel">
       <button class="start-btn" id="start-btn">Старт (3:00)</button>
       <div class="refresh-row">
-        <button class="refresh-btn" id="refresh-karma-btn">Обновить сессию · 5000 кармы</button>
-        <button class="refresh-btn ton" id="refresh-ton-btn">Обновить сессию · 0.01 TON</button>
+        <button class="refresh-btn" id="refresh-karma-btn">
+          <span class="rb-l1">Обновить сессию</span>
+          <span class="rb-l2">5000 кармы</span>
+        </button>
+        <button class="refresh-btn ton" id="refresh-ton-btn">
+          <span class="rb-l1">Обновить сессию</span>
+          <span class="rb-l2">0.01 TON</span>
+        </button>
       </div>
       <div class="dev-note">DULYA backend · игра синхронизирована с сервером</div>
     </div>
@@ -537,6 +566,7 @@
     <button class="nav-btn" id="nav-friends"><span class="dot">👥</span>Друзья</button>
     <button class="nav-btn" id="nav-wallet"><span class="dot">👛</span>Кошелёк</button>
     <button class="nav-btn" id="nav-leaderboard"><span class="dot">🏆</span>Лидерборд</button>
+    <button class="nav-btn" id="nav-sponsors"><span class="dot">💎</span>Спонсорам</button>
   </nav>
 
 </div>
@@ -586,7 +616,10 @@ function playTone(freq, duration, type = 'sine', peak = 0.15, delay = 0){
   osc.start(t0);
   osc.stop(t0 + duration + 0.02);
 }
+let soundMuted = false;
+
 function sfx(type){
+  if (soundMuted) return;
   if (type === 'hit') playTone(880, 0.08, 'sine', 0.12);
   else if (type === 'miss') playTone(150, 0.16, 'sawtooth', 0.08);
   else if (type === 'golden'){
@@ -595,6 +628,12 @@ function sfx(type){
     playTone(1320, 0.14, 'sine', 0.18, 0.16);
   }
 }
+
+const muteBtn = document.getElementById('mute-btn');
+muteBtn.addEventListener('click', () => {
+  soundMuted = !soundMuted;
+  muteBtn.textContent = soundMuted ? '🔇' : '🔊';
+});
 
 // ---- Визуальные константы (сама игровая логика теперь на сервере —
 // см. src/services/gameEngine.js в бэкенде, значения должны совпадать) ----
@@ -718,10 +757,10 @@ function drawWheel(){
 
     if (isActive && handImgReady){
       const midAngle = start + SECTOR_ANGLE/2;
-      const imgR = r * 0.64;
+      const imgR = r * 0.74;
       const ix = cx + Math.cos(midAngle) * imgR;
       const iy = cy + Math.sin(midAngle) * imgR;
-      const iw = r * 0.56;
+      const iw = r * 0.46;
       const ih = iw * (handImg.naturalHeight / handImg.naturalWidth || 1);
 
       ctx.save();
@@ -893,13 +932,62 @@ startBtn.addEventListener('click', async () => {
   }
 });
 
-// Кнопки «обновить сессию» — пока задумка, функциональность не
-// реализована (по просьбе — сначала нужно продумать механику).
-document.getElementById('refresh-karma-btn').addEventListener('click', () => {
-  showToast('Скоро — ещё в разработке');
+// ---- Кнопки «Обновить сессию» ----
+const refreshKarmaBtn = document.getElementById('refresh-karma-btn');
+const refreshTonBtn = document.getElementById('refresh-ton-btn');
+
+refreshKarmaBtn.addEventListener('click', async () => {
+  if (Date.now() >= state.cooldownUntil){ showToast('Кулдаун и так свободен'); return; }
+  if (state.points < (state.karmaRefreshCost || 5000)){
+    showToast(`Не хватает кармы (нужно ${state.karmaRefreshCost || 5000})`);
+    return;
+  }
+  refreshKarmaBtn.disabled = true;
+  try {
+    const res = await apiFetch('/game/session/refresh/karma', { method: 'POST' });
+    if (!res.ok){
+      const data = await res.json();
+      showToast(data.error === 'not_enough_karma' ? 'Не хватает кармы' : 'Не получилось');
+      return;
+    }
+    state.points -= (state.karmaRefreshCost || 5000);
+    state.cooldownUntil = 0;
+    showToast('Сессия обновлена!');
+  } catch (err) {
+    showToast('Ошибка сети');
+  } finally {
+    refreshKarmaBtn.disabled = false;
+  }
 });
-document.getElementById('refresh-ton-btn').addEventListener('click', () => {
-  showToast('Скоро — ещё в разработке');
+
+refreshTonBtn.addEventListener('click', async () => {
+  if (Date.now() >= state.cooldownUntil){ showToast('Кулдаун и так свободен'); return; }
+  if (!state.tonTreasuryAddress){
+    showToast('Оплата TON пока не настроена');
+    return;
+  }
+  refreshTonBtn.disabled = true;
+  try {
+    // Открываем в кошельке диалог отправки — сумма и получатель зашиты тут,
+    // менять их на клиенте бессмысленно, кошелёк покажет ровно это.
+    await tonConnectUI.sendTransaction({
+      validUntil: Math.floor(Date.now()/1000) + 300,
+      messages: [{
+        address: state.tonTreasuryAddress,
+        amount: String(Math.round(parseFloat(state.tonRefreshCost || '0.01') * 1e9)), // TON → нанотоны
+      }],
+    });
+    // См. предупреждение в backend/routes/game.js: сервер сейчас не
+    // проверяет, что транзакция реально прошла в блокчейне.
+    const res = await apiFetch('/game/session/refresh/ton', { method: 'POST' });
+    if (!res.ok){ showToast('Оплата прошла, но сервер не подтвердил'); return; }
+    state.cooldownUntil = 0;
+    showToast('Сессия обновлена!');
+  } catch (err) {
+    // Пользователь мог просто отменить платёж в кошельке — не пугаем его.
+  } finally {
+    refreshTonBtn.disabled = false;
+  }
 });
 
 async function handleSessionEnd(){
@@ -939,6 +1027,9 @@ async function refreshState(){
   state.trainingPoints = data.trainingPoints;
   state.tokens = data.tokens;
   state.cooldownUntil = data.cooldownUntil ? new Date(data.cooldownUntil).getTime() : 0;
+  state.karmaRefreshCost = data.karmaRefreshCost;
+  state.tonRefreshCost = data.tonRefreshCost;
+  state.tonTreasuryAddress = data.tonTreasuryAddress;
 
   try {
     const refRes = await apiFetch('/game/referral');
@@ -1054,6 +1145,9 @@ navTasks.addEventListener('click', () => showScreen('tasks'));
 navFriends.addEventListener('click', () => showScreen('friends'));
 navWallet.addEventListener('click', () => showScreen('wallet'));
 navLeaderboard.addEventListener('click', () => showScreen('leaderboard'));
+document.getElementById('nav-sponsors').addEventListener('click', () => {
+  showToast('В разработке'); // планы на стейкинг токена — пока не экран, а задумка
+});
 
 // ---- Задания ----
 const tasksList = document.getElementById('tasks-list');
