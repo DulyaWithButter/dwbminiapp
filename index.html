@@ -674,6 +674,11 @@ async function apiFetch(path, options = {}){
     ...options,
     headers: {
       'Content-Type': 'application/json',
+      // Обходит предупреждающую страницу-заглушку ngrok на бесплатном
+      // тарифе — без этого заголовка ngrok вместо ответа сервера отдаёт
+      // HTML-страницу с предупреждением. Безвредно для любого другого
+      // хостинга, можно оставить навсегда.
+      'ngrok-skip-browser-warning': 'true',
       ...(apiToken ? { Authorization: `Bearer ${apiToken}` } : {}),
       ...(options.headers || {}),
     },
