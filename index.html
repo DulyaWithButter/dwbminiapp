@@ -131,13 +131,13 @@
   .tier-flash{
     position:absolute;
     inset:0;
-    background:radial-gradient(circle, rgba(255,183,3,.6) 0%, rgba(255,183,3,0) 68%);
+    background:radial-gradient(circle, rgba(255,200,40,.85) 0%, rgba(255,183,3,.35) 55%, rgba(255,183,3,0) 92%);
     opacity:0;
     pointer-events:none;
   }
-  .tier-flash.flashing{ animation: tierFlash .55s ease-out; }
+  .tier-flash.flashing{ animation: tierFlash .65s ease-out; }
   @keyframes tierFlash{
-    0%{ opacity:.9; }
+    0%{ opacity:1; }
     100%{ opacity:0; }
   }
   .center-readout{
@@ -657,6 +657,15 @@ const SLOW_SPEED = 0.2;          // скорость после промаха (
 const SLOW_DURATION_MS = 2500;
 const SESSION_MS = 3 * 60 * 1000; // только для дефолтного текста кнопки
 
+// Небольшое ускорение вращения на 5-м (streak 55, x5) и 8-м (streak 500, x8)
+// тирах комбо — чисто косметика, хит по-прежнему решает индекс сектора,
+// а не то, где он оказался на экране.
+function currentBaseSpeed(){
+  if (state.streak >= 500) return BASE_SPEED * 1.5;
+  if (state.streak >= 55) return BASE_SPEED * 1.25;
+  return BASE_SPEED;
+}
+
 // ---- Состояние ----
 let apiToken = null;
 let pending = false; // true, пока ждём ответ сервера на тап/промах
@@ -679,6 +688,7 @@ let state = {
   resolved: true,
   sessionBonusSec: 0, // бонус к длине сессии от рефералов (секунды)
   lastMultiplier: 1,  // для вспышки при достижении нового тира комбо
+  lights: [],          // огоньки за ежедневные заходы: [{slotIndex, color}]
 };
 
 function sleep(ms){ return new Promise((r) => setTimeout(r, ms)); }
@@ -869,7 +879,28 @@ function drawWheel(){
 
   ctx.restore(); // конец пульс-трансформации
 
+  drawLoginLights(cx, cy, r);
   drawParticles();
+}
+
+// Огоньки за ежедневные заходы — маленькое кольцо чуть за пределами
+// колеса, не участвует в пульсе/тряске, чтобы не мешать читать сектора.
+const LIGHTS_TOTAL_SLOTS = 96;
+function drawLoginLights(cx, cy, r){
+  if (!state.lights || state.lights.length === 0) return;
+  const ringR = r + 8;
+  for (const light of state.lights){
+    const angle = (light.slotIndex / LIGHTS_TOTAL_SLOTS) * Math.PI * 2;
+    const x = cx + Math.cos(angle) * ringR;
+    const y = cy + Math.sin(angle) * ringR;
+    ctx.beginPath();
+    ctx.arc(x, y, 2.3, 0, Math.PI*2);
+    ctx.fillStyle = light.color;
+    ctx.shadowColor = light.color;
+    ctx.shadowBlur = 5;
+    ctx.fill();
+  }
+  ctx.shadowBlur = 0;
 }
 
 // ---- Игровой цикл ----
@@ -880,7 +911,7 @@ function tick(frameNow){
   const now = Date.now(); // эпоха — сравнимо с таймштампами от сервера
 
   if (state.mode === 'paid' || state.mode === 'training'){
-    const speed = (now < state.slowUntil) ? SLOW_SPEED : BASE_SPEED;
+    const speed = (now < state.slowUntil) ? SLOW_SPEED : currentBaseSpeed();
     state.rotation += speed * dt;
 
     if (!pending && state.activeSector !== null && !state.resolved && now > state.activeExpiresAt){
@@ -1002,11 +1033,11 @@ async function resolveTap(sectorIndex){
         haptic('golden');
         sfx('golden');
         wheelPulse = 1;
-        spawnParticles(px, py, currentGoldenColor, 22, { speed: 150, life: 0.7, size: 3.5 });
+        spawnParticles(px, py, currentGoldenColor, 26, { speed: 220, life: 0.85, size: 3.5 });
       } else {
         sfx('hit');
         if (data.goldenCapped) showToast('Золото на сегодня закончилось 🌙');
-        spawnParticles(px, py, '#ff5a1f', 10, { speed: 95, life: 0.5 });
+        spawnParticles(px, py, '#ff5a1f', 12, { speed: 150, life: 0.65 });
       }
     } else {
       state.streak = 0;
@@ -1554,6 +1585,12 @@ async function boot(){
 
     await refreshState();
     await beginTraining();
+
+    try {
+      const checkinRes = await apiFetch('/game/checkin', { method: 'POST' });
+      const checkinData = await checkinRes.json();
+      state.lights = checkinData.lights || [];
+    } catch (err) { /* не критично — просто не покажем огоньки в этот раз */ }
   } catch (err) {
     console.error('boot failed', err);
     connectMsg.textContent = 'Не получилось войти. Проверьте бэкенд.';
