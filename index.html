@@ -128,6 +128,18 @@
     aspect-ratio:1/1;
     touch-action:none;
   }
+  .tier-flash{
+    position:absolute;
+    inset:0;
+    background:radial-gradient(circle, rgba(255,183,3,.6) 0%, rgba(255,183,3,0) 68%);
+    opacity:0;
+    pointer-events:none;
+  }
+  .tier-flash.flashing{ animation: tierFlash .55s ease-out; }
+  @keyframes tierFlash{
+    0%{ opacity:.9; }
+    100%{ opacity:0; }
+  }
   .center-readout{
     position:absolute;
     display:flex;
@@ -478,6 +490,7 @@
   <div class="screen" id="screen-game">
     <div class="stage">
       <canvas id="wheel"></canvas>
+      <div class="tier-flash" id="tier-flash"></div>
       <div class="center-readout">
         <span class="streak-n mono" id="streak-val">0</span>
         <span class="streak-s">streak</span>
@@ -665,6 +678,7 @@ let state = {
   activeExpiresAt: 0,
   resolved: true,
   sessionBonusSec: 0, // бонус к длине сессии от рефералов (секунды)
+  lastMultiplier: 1,  // для вспышки при достижении нового тира комбо
 };
 
 function sleep(ms){ return new Promise((r) => setTimeout(r, ms)); }
@@ -716,6 +730,57 @@ function goldenHue(){
 }
 let currentGoldenColor = goldenHue();
 
+// ---- Геометрия колеса (общая для отрисовки и спавна эффектов) ----
+function wheelGeom(){
+  const size = cssSize;
+  return { size, r: size/2 - 8, cx: size/2, cy: size/2 };
+}
+
+// ---- Частицы (вспышка при попадании, искры вокруг золота) ----
+let particles = [];
+function spawnParticles(x, y, color, count, opts = {}){
+  const speed = opts.speed || 90;
+  const life = opts.life || 0.55;
+  const size = opts.size || 3;
+  for (let i = 0; i < count; i++){
+    const angle = Math.random() * Math.PI * 2;
+    const spd = speed * (0.4 + Math.random()*0.6);
+    particles.push({
+      x, y,
+      vx: Math.cos(angle) * spd,
+      vy: Math.sin(angle) * spd,
+      life, maxLife: life,
+      color,
+      size: size * (0.6 + Math.random()*0.8),
+    });
+  }
+}
+function updateParticles(dt){
+  for (let i = particles.length - 1; i >= 0; i--){
+    const p = particles[i];
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.vx *= 0.94; p.vy *= 0.94;
+    p.life -= dt;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+}
+function drawParticles(){
+  for (const p of particles){
+    ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+// ---- Пульс колеса (золото) и тряска (промах) ----
+let wheelPulse = 0; // 0..1, затухает
+let shakeMag = 0;   // пиксели, затухает
+let sparkTimer = 0; // таймер искр вокруг активного золотого сектора
+
 // Применить событие сектора, присланное сервером (из /training/start,
 // /training/tap.next, /session/start.event, /tap.next).
 function applyEvent(event){
@@ -729,8 +794,23 @@ function applyEvent(event){
 function drawWheel(){
   const size = cssSize;
   const r = size/2 - 8;
-  const cx = size/2, cy = size/2;
+  let cx = size/2, cy = size/2;
   ctx.clearRect(0,0,size,size);
+
+  // Тряска при промахе — небольшой случайный джиттер центра.
+  if (shakeMag > 0.01){
+    cx += (Math.random()*2-1) * shakeMag;
+    cy += (Math.random()*2-1) * shakeMag;
+  }
+
+  ctx.save();
+  if (wheelPulse > 0.01){
+    // Пульс/«клевок» колеса при поимке золота.
+    const scale = 1 + wheelPulse * 0.1;
+    ctx.translate(cx, cy);
+    ctx.scale(scale, scale);
+    ctx.translate(-cx, -cy);
+  }
 
   for (let i=0; i<SECTOR_COUNT; i++){
     const start = state.rotation + i*SECTOR_ANGLE;
@@ -786,6 +866,10 @@ function drawWheel(){
   ctx.strokeStyle = 'rgba(255,183,3,.5)';
   ctx.lineWidth = 2;
   ctx.stroke();
+
+  ctx.restore(); // конец пульс-трансформации
+
+  drawParticles();
 }
 
 // ---- Игровой цикл ----
@@ -805,7 +889,24 @@ function tick(frameNow){
     if (!pending && state.mode === 'paid' && state.sessionEndAt && now > state.sessionEndAt){
       handleSessionEnd();
     }
+
+    // Постоянные искры вокруг активного золотого сектора, пока он горит.
+    if (state.activeIsGolden && !state.resolved && state.activeSector !== null){
+      sparkTimer -= dt;
+      if (sparkTimer <= 0){
+        sparkTimer = 0.07;
+        const { cx, cy, r } = wheelGeom();
+        const midAngle = state.rotation + state.activeSector*SECTOR_ANGLE + SECTOR_ANGLE/2;
+        const px = cx + Math.cos(midAngle) * r * 0.74;
+        const py = cy + Math.sin(midAngle) * r * 0.74;
+        spawnParticles(px, py, currentGoldenColor, 1, { speed: 40, life: 0.4, size: 2.2 });
+      }
+    }
   }
+
+  updateParticles(dt);
+  wheelPulse = Math.max(0, wheelPulse - dt*2.5);
+  shakeMag = Math.max(0, shakeMag - dt*26);
 
   drawWheel();
   updateHud();
@@ -833,6 +934,13 @@ canvas.addEventListener('pointerdown', (e) => {
   ensureAudio(); // резюмим AudioContext синхронно в жесте тапа — иначе браузер не даст играть звук
   resolveTap(tappedSector);
 });
+
+const tierFlashEl = document.getElementById('tier-flash');
+function triggerTierFlash(){
+  tierFlashEl.classList.remove('flashing');
+  void tierFlashEl.offsetWidth; // форсируем reflow, чтобы анимация перезапустилась при повторном триггере
+  tierFlashEl.classList.add('flashing');
+}
 
 function handleTimeout(){
   // Окно истекло, тапа не было — это тоже промах, сообщаем серверу тем же
@@ -871,6 +979,13 @@ async function resolveTap(sectorIndex){
 
     data = await res.json();
 
+    // Точка вспышки/частиц — координаты сектора, который только что
+    // разрешился (ДО applyEvent, пока state.activeSector ещё старый).
+    const { cx, cy, r } = wheelGeom();
+    const midAngle = state.rotation + state.activeSector*SECTOR_ANGLE + SECTOR_ANGLE/2;
+    const px = cx + Math.cos(midAngle) * r * 0.74;
+    const py = cy + Math.sin(midAngle) * r * 0.74;
+
     if (data.hit){
       state.streak = data.streak;
       if (state.mode === 'paid') state.points += data.gained;
@@ -878,21 +993,31 @@ async function resolveTap(sectorIndex){
       showMultTag(data.multiplier);
       haptic('hit');
 
+      if (data.multiplier > state.lastMultiplier) triggerTierFlash();
+      state.lastMultiplier = data.multiplier;
+
       if (data.goldenAmount){
         state.tokens += data.goldenAmount;
         showToast(`✨ Золотой сектор! +${data.goldenAmount} DULYA`);
         haptic('golden');
         sfx('golden');
+        wheelPulse = 1;
+        spawnParticles(px, py, currentGoldenColor, 22, { speed: 150, life: 0.7, size: 3.5 });
       } else {
         sfx('hit');
         if (data.goldenCapped) showToast('Золото на сегодня закончилось 🌙');
+        spawnParticles(px, py, '#ff5a1f', 10, { speed: 95, life: 0.5 });
       }
     } else {
       state.streak = 0;
+      state.lastMultiplier = 1;
       state.slowUntil = Date.now() + SLOW_DURATION_MS;
       hideMultTag();
       haptic('miss');
-      if (sectorIndex !== -1) sfx('miss'); // -1 = пропуск окна без тапа, звук не нужен
+      if (sectorIndex !== -1){
+        sfx('miss');
+        shakeMag = 6;
+      }
     }
 
     if (data.next){
