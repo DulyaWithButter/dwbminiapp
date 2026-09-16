@@ -1512,7 +1512,7 @@ tonConnectUI.onStatusChange(async (wallet) => {
 });
 
 walletDisconnectBtn.addEventListener('click', async () => {
-  await tonConnectUI.disconnect();
+  try { await tonConnectUI.disconnect(); } catch (err) { console.error('ton disconnect failed', err); }
   try { await apiFetch('/game/wallet/unlink', { method: 'POST' }); } catch (err) {}
   renderWallet(null);
 });
