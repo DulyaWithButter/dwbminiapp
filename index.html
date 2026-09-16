@@ -1122,9 +1122,16 @@ refreshKarmaBtn.addEventListener('click', async () => {
 });
 
 refreshTonBtn.addEventListener('click', async () => {
-  if (Date.now() >= state.cooldownUntil){ showToast('Кулдаун и так свободен'); return; }
+  if (Date.now() >= state.cooldownUntil){
+    showToast('Кулдаун и так свободен — обновлять нечего');
+    return;
+  }
   if (!state.tonTreasuryAddress){
     showToast('Оплата TON пока не настроена');
+    return;
+  }
+  if (!tonConnectUI.connected){
+    showToast('Сначала подключите кошелёк на вкладке «Кошелёк»');
     return;
   }
   refreshTonBtn.disabled = true;
@@ -1145,7 +1152,13 @@ refreshTonBtn.addEventListener('click', async () => {
     state.cooldownUntil = 0;
     showToast('Сессия обновлена!');
   } catch (err) {
-    // Пользователь мог просто отменить платёж в кошельке — не пугаем его.
+    console.error('TON refresh failed', err);
+    // TonConnect кидает UserRejectsError, если человек сам отменил платёж
+    // в кошельке — это не ошибка, ничего не показываем. Всё остальное —
+    // реальная проблема, и её стоит увидеть, а не проглатывать молча.
+    if (err?.name !== 'UserRejectsError'){
+      showToast('Не получилось: ' + (err?.message || 'см. консоль'));
+    }
   } finally {
     refreshTonBtn.disabled = false;
   }
