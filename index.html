@@ -633,12 +633,7 @@
           <button class="stake-term-btn" data-term="12">1 год<br><span>+50%</span></button>
           <button class="stake-term-btn" data-term="24">2 года<br><span>+100%</span></button>
         </div>
-        <div class="ref-label" style="margin-top:14px">Валюта</div>
-        <div class="stake-currency" id="stake-currency">
-          <button class="stake-cur-btn active" data-cur="TON">TON</button>
-          <button class="stake-cur-btn" data-cur="USDT">USDT</button>
-        </div>
-        <div class="ref-label" style="margin-top:14px">Сумма</div>
+        <div class="ref-label" style="margin-top:14px">Сумма (USDT)</div>
         <input class="stake-amount-input mono" id="stake-amount" type="number" min="0" step="0.01" placeholder="0.00">
         <div class="stake-quote" id="stake-quote"></div>
         <button class="task-btn claim" id="stake-submit-btn" style="width:100%; margin-top:12px">Застейкать</button>
@@ -1636,10 +1631,9 @@ function renderLbList(container, entries){
 // ---- Стейкинг (вкладка «Спонсорам») ----
 const TERM_LABELS = { 6: '6 мес', 12: '1 год', 24: '2 года' };
 let stakeTerm = 6;
-let stakeCurrency = 'TON';
+const stakeCurrency = 'USDT'; // пока единственная валюта стейкинга
 
 const stakeTermsBox = document.getElementById('stake-terms');
-const stakeCurrencyBox = document.getElementById('stake-currency');
 const stakeAmountInput = document.getElementById('stake-amount');
 const stakeQuoteEl = document.getElementById('stake-quote');
 const stakeSubmitBtn = document.getElementById('stake-submit-btn');
@@ -1650,14 +1644,6 @@ stakeTermsBox.querySelectorAll('.stake-term-btn').forEach((btn) => {
     stakeTermsBox.querySelectorAll('.stake-term-btn').forEach((b) => b.classList.remove('active'));
     btn.classList.add('active');
     stakeTerm = Number(btn.dataset.term);
-    updateStakeQuote();
-  });
-});
-stakeCurrencyBox.querySelectorAll('.stake-cur-btn').forEach((btn) => {
-  btn.addEventListener('click', () => {
-    stakeCurrencyBox.querySelectorAll('.stake-cur-btn').forEach((b) => b.classList.remove('active'));
-    btn.classList.add('active');
-    stakeCurrency = btn.dataset.cur;
     updateStakeQuote();
   });
 });
@@ -1693,8 +1679,7 @@ stakeSubmitBtn.addEventListener('click', async () => {
 
   stakeSubmitBtn.disabled = true;
   try {
-    const prepBody = { currency: stakeCurrency, amount };
-    if (stakeCurrency === 'USDT') prepBody.senderAddress = tonConnectUI.account?.address;
+    const prepBody = { amount, senderAddress: tonConnectUI.account?.address };
 
     const prepRes = await apiFetch('/game/staking/prepare', { method: 'POST', body: JSON.stringify(prepBody) });
     if (!prepRes.ok){
