@@ -1530,10 +1530,44 @@ refCopyBtn.addEventListener('click', () => {
 // ---- Кошелёк (TonConnect) ----
 // tonconnect-manifest.json должен лежать рядом с index.html на хостинге
 // (см. файл в репозитории) — TonConnect требует его по абсолютному URL.
-const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
-  manifestUrl: `${location.origin}${location.pathname.replace(/\/?$/, '/')}tonconnect-manifest.json`,
-  buttonRootId: 'ton-connect-button',
-});
+//
+// ВАЖНО: обычный localStorage внутри Telegram Mini App WebView не
+// гарантированно переживает полное закрытие приложения — из-за этого
+// подключение кошелька «отваливалось» при каждом перезапуске. Поэтому,
+// если приложение открыто в Telegram и CloudStorage доступен, храним
+// сессию TonConnect там — она привязана к аккаунту, а не к конкретному
+// запуску WebView. Вне Telegram (обычный браузер) — как раньше, localStorage.
+class TelegramCloudStorage {
+  setItem(key, value){
+    return new Promise((resolve, reject) => {
+      tg.CloudStorage.setItem(key, value, (err) => err ? reject(err) : resolve());
+    });
+  }
+  getItem(key){
+    return new Promise((resolve, reject) => {
+      tg.CloudStorage.getItem(key, (err, value) => err ? reject(err) : resolve(value || null));
+    });
+  }
+  removeItem(key){
+    return new Promise((resolve, reject) => {
+      tg.CloudStorage.removeItem(key, (err) => err ? reject(err) : resolve());
+    });
+  }
+}
+
+function createTonConnectUI(){
+  const manifestUrl = `${location.origin}${location.pathname.replace(/\/?$/, '/')}tonconnect-manifest.json`;
+  if (tg?.CloudStorage && typeof TON_CONNECT_UI.TonConnect === 'function'){
+    try {
+      const connector = new TON_CONNECT_UI.TonConnect({ manifestUrl, storage: new TelegramCloudStorage() });
+      return new TON_CONNECT_UI.TonConnectUI({ connector, buttonRootId: 'ton-connect-button' });
+    } catch (err) {
+      console.error('CloudStorage-backed TonConnect failed, falling back to default storage', err);
+    }
+  }
+  return new TON_CONNECT_UI.TonConnectUI({ manifestUrl, buttonRootId: 'ton-connect-button' });
+}
+const tonConnectUI = createTonConnectUI();
 // Восстановление сохранённой сессии идёт асинхронно в фоне — сразу после
 // создания tonConnectUI.connected ещё может быть false, даже если сессия
 // реально есть. Ждать этот промис нужно везде, где проверяется .connected.
