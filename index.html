@@ -9,7 +9,6 @@
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800;900&family=Manrope:wght@500;700;800&family=JetBrains+Mono:wght@600;700&display=swap" rel="stylesheet">
 <!-- Telegram WebApp API. Вне Telegram просто не найдётся — код ниже это учитывает. -->
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="https://unpkg.com/@tonconnect/sdk@latest/dist/tonconnect-sdk.min.js"></script>
 <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
 <style>
   :root{
@@ -1526,49 +1525,10 @@ refCopyBtn.addEventListener('click', () => {
 // ---- Кошелёк (TonConnect) ----
 // tonconnect-manifest.json должен лежать рядом с index.html на хостинге
 // (см. файл в репозитории) — TonConnect требует его по абсолютному URL.
-//
-// ВАЖНО: обычный localStorage внутри Telegram Mini App WebView не
-// гарантированно переживает полное закрытие приложения — из-за этого
-// подключение кошелька «отваливалось» при каждом перезапуске. Поэтому,
-// если приложение открыто в Telegram, храним сессию TonConnect в
-// Telegram.WebApp.CloudStorage — она привязана к аккаунту, а не к
-// конкретному запуску WebView. Вне Telegram (обычный браузер) — localStorage.
-//
-// Класс TonConnect (для кастомного connector с своим storage) живёт в
-// ОТДЕЛЬНОМ пакете @tonconnect/sdk (глобальная переменная TonConnectSDK),
-// а не в @tonconnect/ui — см. https://docs.ton.org/.../sdk (проверено,
-// в прошлый раз ошибся именно тут и сломал подключение).
-class TelegramCloudStorage {
-  setItem(key, value){
-    return new Promise((resolve, reject) => {
-      tg.CloudStorage.setItem(key, value, (err) => err ? reject(err) : resolve());
-    });
-  }
-  getItem(key){
-    return new Promise((resolve, reject) => {
-      tg.CloudStorage.getItem(key, (err, value) => err ? reject(err) : resolve(value || null));
-    });
-  }
-  removeItem(key){
-    return new Promise((resolve, reject) => {
-      tg.CloudStorage.removeItem(key, (err) => err ? reject(err) : resolve());
-    });
-  }
-}
-
-function createTonConnectUI(){
-  const manifestUrl = `${location.origin}${location.pathname.replace(/\/?$/, '/')}tonconnect-manifest.json`;
-  if (tg?.CloudStorage && typeof TonConnectSDK?.TonConnect === 'function'){
-    try {
-      const connector = new TonConnectSDK.TonConnect({ manifestUrl, storage: new TelegramCloudStorage() });
-      return new TON_CONNECT_UI.TonConnectUI({ connector, buttonRootId: 'ton-connect-button' });
-    } catch (err) {
-      console.error('CloudStorage-backed TonConnect failed, falling back to default storage', err);
-    }
-  }
-  return new TON_CONNECT_UI.TonConnectUI({ manifestUrl, buttonRootId: 'ton-connect-button' });
-}
-const tonConnectUI = createTonConnectUI();
+const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+  manifestUrl: `${location.origin}${location.pathname.replace(/\/?$/, '/')}tonconnect-manifest.json`,
+  buttonRootId: 'ton-connect-button',
+});
 // Восстановление сохранённой сессии идёт асинхронно в фоне — сразу после
 // создания tonConnectUI.connected ещё может быть false, даже если сессия
 // реально есть. Ждать этот промис нужно везде, где проверяется .connected.
