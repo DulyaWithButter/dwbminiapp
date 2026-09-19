@@ -46,13 +46,14 @@
   /* ---- top bar ---- */
   .topbar{
     position:relative;
-    background:linear-gradient(180deg,var(--gold-2),var(--gold));
-    color:var(--ink);
+    background:var(--ink);
+    color:var(--paper);
     padding:0;
+    border-bottom:3px solid var(--orange);
   }
   .mute-btn{
     position:absolute;
-    top:calc(100% + 6px);
+    top:calc(100% + 9px);
     right:12px;
     width:26px;
     height:26px;
@@ -80,10 +81,10 @@
     padding:9px 14px;
     transition:opacity .25s ease, background-color .25s ease;
   }
-  .stat.left{ border-right:1px solid rgba(11,11,13,.18); }
+  .stat.left{ border-right:1px solid rgba(255,244,227,.1); }
   .stat.right{
     align-items:flex-end;
-    border-left:1px solid rgba(11,11,13,.18);
+    border-left:1px solid rgba(255,244,227,.1);
   }
   .stat.center{
     flex-direction:row;
@@ -91,27 +92,27 @@
     justify-content:center;
     gap:10px;
   }
-  .stat.dim{ opacity:.45; background-color:rgba(11,11,13,.16); }
+  .stat.dim{ opacity:.4; background-color:rgba(255,244,227,.04); }
   .stat .label{
     font-size:10px;
     letter-spacing:.12em;
     text-transform:uppercase;
-    color:rgba(11,11,13,.6);
+    color:rgba(255,244,227,.45);
   }
   .stat .val{
     font-size:20px;
     font-weight:800;
-    color:var(--ink);
+    color:var(--paper);
   }
   .token-icon{
-    width:40px;
-    height:40px;
+    width:38px;
+    height:38px;
     border-radius:11px;
     object-fit:cover;
-    background:rgba(11,11,13,.1);
+    background:rgba(255,183,3,.12);
     padding:3px;
   }
-  .stat.center .val{ font-size:20px; }
+  .stat.center .val{ font-size:20px; color:var(--gold-2); }
 
   /* ---- game stage ---- */
   .stage{
@@ -231,13 +232,13 @@
     font-family:'Manrope',sans-serif;
     background:transparent;
     border:1.5px solid rgba(255,244,227,.15);
-    border-radius:11px;
+    border-radius:12px;
     padding:8px 6px;
     cursor:pointer;
   }
   .refresh-btn .rb-l1{ font-size:10px; font-weight:600; color:rgba(255,244,227,.6); }
   .refresh-btn .rb-l2{ font-size:12.5px; font-weight:800; color:var(--orange); }
-  .refresh-btn.ton{ border-color:rgba(0,152,234,.35); }
+  .refresh-btn.usdt{ border-color:rgba(0,152,234,.35); }
   .refresh-btn:disabled{ opacity:.5; cursor:default; }
 
   .start-btn{
@@ -249,7 +250,7 @@
     color:var(--ink);
     background:linear-gradient(180deg,var(--gold-2),var(--gold));
     border:none;
-    border-radius:13px;
+    border-radius:12px;
     padding:12px;
     box-shadow:0 6px 0 #c88400, 0 10px 20px rgba(0,0,0,.4);
     cursor:pointer;
@@ -283,8 +284,10 @@
   /* ---- bottom nav ---- */
   nav{
     display:flex;
-    border-top:1px solid rgba(255,244,227,.1);
+    border-top:1px solid rgba(255,244,227,.08);
     background:var(--ink-2);
+    padding:6px 3px 8px;
+    gap:1px;
   }
   nav button{
     flex:1;
@@ -292,16 +295,23 @@
     border:none;
     color:var(--dim);
     font-family:'Manrope',sans-serif;
-    font-size:8.3px;
+    font-size:9.5px;
     font-weight:700;
-    padding:9px 1px 8px;
+    padding:5px 1px 3px;
     display:flex;
     flex-direction:column;
     align-items:center;
     gap:3px;
   }
   nav button.active{ color:var(--gold-2); }
-  nav button .dot{ font-size:14px; }
+  nav button .dot{
+    font-size:16px;
+    line-height:1;
+    padding:4px 11px;
+    border-radius:10px;
+    transition: background-color .15s ease;
+  }
+  nav button.active .dot{ background:rgba(255,183,3,.16); }
 
   /* ---- generic screen (Tasks / Friends) ---- */
   .screen{ flex:1; display:flex; flex-direction:column; overflow-y:auto; }
@@ -323,14 +333,38 @@
     gap:12px;
   }
   .task-card .t-title{ font-size:14px; font-weight:700; }
-  .task-card .t-reward{ font-size:12px; color:var(--gold-2); margin-top:2px; }
+  .t-reward-badge{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    background:rgba(255,183,3,.12);
+    border:1px solid rgba(255,183,3,.35);
+    border-radius:999px;
+    padding:3px 10px 3px 4px;
+    margin-top:6px;
+    width:fit-content;
+  }
+  .t-reward-badge .coin{
+    width:17px;
+    height:17px;
+    flex:none;
+    border-radius:50%;
+    background:linear-gradient(180deg,var(--gold-2),var(--gold));
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:9.5px;
+    font-weight:800;
+    color:var(--ink);
+  }
+  .t-reward-badge .amt{ font-size:11px; font-weight:700; color:var(--gold-2); }
   .task-btn{
     flex:none;
     font-family:'Unbounded',sans-serif;
     font-weight:700;
     font-size:12px;
     border:none;
-    border-radius:10px;
+    border-radius:12px;
     padding:9px 14px;
     cursor:pointer;
     color:var(--ink);
@@ -364,7 +398,7 @@
     font-weight:700;
     font-size:11px;
     border:none;
-    border-radius:10px;
+    border-radius:12px;
     padding:9px 12px;
     cursor:pointer;
     color:var(--ink);
@@ -413,21 +447,49 @@
     align-items:center;
     gap:10px;
     background:var(--ink-2);
-    border-radius:10px;
+    border-radius:12px;
     padding:9px 12px;
     font-size:13px;
+    border-left:3px solid transparent;
   }
-  .lb-rank{ font-family:'Unbounded',sans-serif; font-weight:800; color:var(--dim); width:18px; }
-  .lb-row:nth-child(1) .lb-rank{ color:var(--gold-2); }
+  .lb-rank{
+    font-family:'Unbounded',sans-serif;
+    font-weight:800;
+    font-size:11px;
+    width:22px;
+    height:22px;
+    flex:none;
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:rgba(255,244,227,.1);
+    color:var(--dim);
+  }
+  .lb-row:nth-child(1){ border-left-color:#ffd24d; background:linear-gradient(90deg, rgba(255,183,3,.16), var(--ink-2) 65%); }
+  .lb-row:nth-child(1) .lb-rank{ background:#ffd24d; color:#3a2a00; }
+  .lb-row:nth-child(2){ border-left-color:#cfd4da; }
+  .lb-row:nth-child(2) .lb-rank{ background:#cfd4da; color:#26262a; }
+  .lb-row:nth-child(3){ border-left-color:#d99a5b; }
+  .lb-row:nth-child(3) .lb-rank{ background:#d99a5b; color:#3a1f00; }
   .lb-name{ flex:1; color:var(--paper); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .lb-value{ font-family:'JetBrains Mono',monospace; font-weight:700; color:var(--orange); }
   .lb-empty{ font-size:12px; color:var(--dim); padding:4px 2px; }
 
   .stake-card{
     background:var(--ink-2);
-    border:1.5px solid rgba(255,244,227,.1);
-    border-radius:16px;
-    padding:16px;
+    border:2px solid rgba(255,183,3,.25);
+    border-radius:18px;
+    padding:18px 16px;
+    position:relative;
+  }
+  .stake-card::before{
+    content:'🔒';
+    position:absolute;
+    top:14px;
+    right:16px;
+    font-size:15px;
+    opacity:.55;
   }
   .stake-terms, .stake-currency{ display:flex; gap:8px; }
   .stake-term-btn, .stake-cur-btn{
@@ -438,7 +500,7 @@
     color:var(--dim);
     background:var(--ink);
     border:1.5px solid rgba(255,244,227,.12);
-    border-radius:11px;
+    border-radius:12px;
     padding:9px 4px;
     cursor:pointer;
     text-align:center;
@@ -454,7 +516,7 @@
     width:100%;
     background:var(--ink);
     border:1.5px solid rgba(255,244,227,.15);
-    border-radius:11px;
+    border-radius:12px;
     padding:11px 12px;
     color:var(--paper);
     font-size:15px;
@@ -463,7 +525,8 @@
   .stake-quote{ font-size:12px; color:var(--dim); margin-top:8px; min-height:16px; }
   .stake-row{
     background:var(--ink-2);
-    border:1.5px solid rgba(255,244,227,.08);
+    border:1.5px solid rgba(255,183,3,.16);
+    border-left:3px solid var(--gold);
     border-radius:14px;
     padding:12px 14px;
     margin-top:8px;
@@ -556,9 +619,9 @@
           <span class="rb-l1">Обновить сессию</span>
           <span class="rb-l2">5000 кармы</span>
         </button>
-        <button class="refresh-btn ton" id="refresh-ton-btn">
+        <button class="refresh-btn usdt" id="refresh-usdt-btn">
           <span class="rb-l1">Обновить сессию</span>
-          <span class="rb-l2">0.01 TON</span>
+          <span class="rb-l2" id="refresh-usdt-amount">… USDT</span>
         </button>
       </div>
       <div class="dev-note">DULYA backend · игра синхронизирована с сервером</div>
@@ -649,7 +712,7 @@
     <button class="nav-btn" id="nav-friends"><span class="dot">👥</span>Друзья</button>
     <button class="nav-btn" id="nav-wallet"><span class="dot">👛</span>Кошелёк</button>
     <button class="nav-btn" id="nav-leaderboard"><span class="dot">🏆</span>Лидерборд</button>
-    <button class="nav-btn" id="nav-sponsors"><span class="dot">💎</span>Спонсорам</button>
+    <button class="nav-btn" id="nav-sponsors"><span class="dot">💎</span>Стейк</button>
   </nav>
 
 </div>
@@ -1165,7 +1228,8 @@ startBtn.addEventListener('click', async () => {
 
 // ---- Кнопки «Обновить сессию» ----
 const refreshKarmaBtn = document.getElementById('refresh-karma-btn');
-const refreshTonBtn = document.getElementById('refresh-ton-btn');
+const refreshUsdtBtn = document.getElementById('refresh-usdt-btn');
+const refreshUsdtAmountEl = document.getElementById('refresh-usdt-amount');
 
 refreshKarmaBtn.addEventListener('click', async () => {
   if (Date.now() >= state.cooldownUntil){ showToast('Кулдаун и так свободен'); return; }
@@ -1191,13 +1255,13 @@ refreshKarmaBtn.addEventListener('click', async () => {
   }
 });
 
-refreshTonBtn.addEventListener('click', async () => {
+refreshUsdtBtn.addEventListener('click', async () => {
   if (Date.now() >= state.cooldownUntil){
     showToast('Кулдаун и так свободен — обновлять нечего');
     return;
   }
   if (!state.tonTreasuryAddress){
-    showToast('Оплата TON пока не настроена');
+    showToast('Оплата USDT пока не настроена');
     return;
   }
   await tonConnectReady; // дождаться восстановления сохранённой сессии
@@ -1205,25 +1269,32 @@ refreshTonBtn.addEventListener('click', async () => {
     showToast('Сначала подключите кошелёк на вкладке «Кошелёк»');
     return;
   }
-  refreshTonBtn.disabled = true;
+  refreshUsdtBtn.disabled = true;
   try {
-    // Открываем в кошельке диалог отправки — сумма и получатель зашиты тут,
-    // менять их на клиенте бессмысленно, кошелёк покажет ровно это.
+    const prepRes = await apiFetch('/game/session/refresh/usdt/prepare', {
+      method: 'POST',
+      body: JSON.stringify({ senderAddress: tonConnectUI.account?.address }),
+    });
+    if (!prepRes.ok){
+      showToast('Не получилось подготовить платёж');
+      return;
+    }
+    const prep = await prepRes.json();
+
+    // Открываем в кошельке диалог отправки — сумма/получатель/жетон зашиты
+    // на сервере, менять их на клиенте бессмысленно, кошелёк покажет ровно это.
     await tonConnectUI.sendTransaction({
       validUntil: Math.floor(Date.now()/1000) + 300,
-      messages: [{
-        address: state.tonTreasuryAddress,
-        amount: String(Math.round(parseFloat(state.tonRefreshCost || '0.01') * 1e9)), // TON → нанотоны
-      }],
+      messages: [{ address: prep.toAddress, amount: prep.amountNano, payload: prep.payload }],
     });
     // См. предупреждение в backend/routes/game.js: сервер сейчас не
     // проверяет, что транзакция реально прошла в блокчейне.
-    const res = await apiFetch('/game/session/refresh/ton', { method: 'POST' });
+    const res = await apiFetch('/game/session/refresh/usdt/confirm', { method: 'POST' });
     if (!res.ok){ showToast('Оплата прошла, но сервер не подтвердил'); return; }
     state.cooldownUntil = 0;
     showToast('Сессия обновлена!');
   } catch (err) {
-    console.error('TON refresh failed', err);
+    console.error('session refresh usdt failed', err);
     // TonConnect кидает UserRejectsError, если человек сам отменил платёж
     // в кошельке — это не ошибка, ничего не показываем. Всё остальное —
     // реальная проблема, и её стоит увидеть, а не проглатывать молча.
@@ -1231,7 +1302,7 @@ refreshTonBtn.addEventListener('click', async () => {
       showToast('Не получилось: ' + (err?.message || 'см. консоль'));
     }
   } finally {
-    refreshTonBtn.disabled = false;
+    refreshUsdtBtn.disabled = false;
   }
 });
 
@@ -1265,6 +1336,14 @@ async function beginTraining(){
   applyEvent(data.event);
 }
 
+function formatUsdtAmount(value){
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return '— USDT';
+  const n = Number(value);
+  // Цена DULYA сейчас крошечная, поэтому округляем гибко: не 0.0000 для мелких сумм.
+  const decimals = n < 0.01 ? 6 : n < 1 ? 4 : 2;
+  return `${n.toFixed(decimals).replace(/0+$/, '').replace(/\.$/, '')} USDT`;
+}
+
 async function refreshState(){
   const res = await apiFetch('/game/state');
   const data = await res.json();
@@ -1273,8 +1352,9 @@ async function refreshState(){
   state.tokens = data.tokens;
   state.cooldownUntil = data.cooldownUntil ? new Date(data.cooldownUntil).getTime() : 0;
   state.karmaRefreshCost = data.karmaRefreshCost;
-  state.tonRefreshCost = data.tonRefreshCost;
+  state.usdtRefreshCost = data.usdtRefreshCost;
   state.tonTreasuryAddress = data.tonTreasuryAddress;
+  refreshUsdtAmountEl.textContent = formatUsdtAmount(data.usdtRefreshCost);
 
   try {
     const refRes = await apiFetch('/game/referral');
@@ -1417,7 +1497,7 @@ function renderTasks(tasks){
     card.className = 'task-card';
 
     const info = document.createElement('div');
-    info.innerHTML = `<div class="t-title">${task.title}</div><div class="t-reward">+${task.reward} DULYA</div>`;
+    info.innerHTML = `<div class="t-title">${task.title}</div><div class="t-reward-badge"><span class="coin">${task.reward}</span><span class="amt">DULYA</span></div>`;
 
     const btn = document.createElement('button');
     if (task.completed){
