@@ -1733,7 +1733,18 @@ tonConnectUI.onStatusChange(async (wallet) => {
 
 walletDisconnectBtn.addEventListener('click', async () => {
   try { await tonConnectUI.disconnect(); } catch (err) { console.error('ton disconnect failed', err); }
-  try { await apiFetch('/game/wallet/unlink', { method: 'POST' }); } catch (err) {}
+  try {
+    const res = await apiFetch('/game/wallet/unlink', { method: 'POST' });
+    if (!res.ok){
+      console.error('wallet/unlink failed', res.status, await res.text().catch(() => ''));
+      showToast('Не удалось отвязать кошелёк на сервере — попробуйте ещё раз');
+      return; // не показываем «отвязано», раз на сервере это не сработало
+    }
+  } catch (err) {
+    console.error('wallet/unlink network error', err);
+    showToast('Ошибка сети при отвязке кошелька');
+    return;
+  }
   renderWallet(null);
 });
 
