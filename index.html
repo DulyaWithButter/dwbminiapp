@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800;900&family=Manrope:wght@500;700;800&family=JetBrains+Mono:wght@600;700&display=swap" rel="stylesheet">
 <!-- Telegram WebApp API. Вне Telegram просто не найдётся — код ниже это учитывает. -->
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="vendor/tonconnect-ui.min.js"></script>
+<script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
 <style>
   :root{
     --ink:#0b0b0d;
@@ -1089,23 +1089,14 @@ canvas.addEventListener('pointerdown', (e) => {
   const dist = Math.hypot(x,y);
   if (dist > rect.width/2 || dist < rect.width*0.16) return; // мимо колеса / по ступице
 
-  ensureAudio(); // резюмим AudioContext синхронно в жесте тапа — иначе браузер не даст играть звук
+  let angle = Math.atan2(y, x);
+  if (angle < 0) angle += Math.PI*2;
+  let local = angle - (state.rotation % (Math.PI*2));
+  local = ((local % (Math.PI*2)) + Math.PI*2) % (Math.PI*2);
+  const tappedSector = Math.floor(local / SECTOR_ANGLE);
 
-  if (state.mode === 'paid'){
-    // Платная сессия: шлём СЫРЫЕ координаты клика, а не готовый номер
-    // сектора — сервер сам знает, как крутится колесо, и сам вычисляет,
-    // куда реально попал тап (вариант B, см. gameEngine.js на бэкенде).
-    resolveTap({ dx: x, dy: y });
-  } else {
-    // Тренировка не влияет на реальную ценность — там по-прежнему проще:
-    // шлём готовый индекс сектора (см. обсуждение варианта A/B в чате).
-    let angle = Math.atan2(y, x);
-    if (angle < 0) angle += Math.PI*2;
-    let local = angle - (state.rotation % (Math.PI*2));
-    local = ((local % (Math.PI*2)) + Math.PI*2) % (Math.PI*2);
-    const tappedSector = Math.floor(local / SECTOR_ANGLE);
-    resolveTap({ sectorIndex: tappedSector });
-  }
+  ensureAudio(); // резюмим AudioContext синхронно в жесте тапа — иначе браузер не даст играть звук
+  resolveTap(tappedSector);
 });
 
 const tierFlashEl = document.getElementById('tier-flash');
@@ -1117,34 +1108,27 @@ function triggerTierFlash(){
 
 function handleTimeout(){
   // Окно истекло, тапа не было — это тоже промах, сообщаем серверу тем же
-  // путём, просто явно отмечая отсутствие реального тапа.
-  if (state.mode === 'paid') resolveTap({ dx: null, dy: null });
-  else resolveTap({ sectorIndex: -1 });
+  // путём, просто с заведомо невалидным индексом сектора.
+  resolveTap(-1);
 }
 
 // Единая точка обработки тапа/промаха — ждём сервер, он решает hit/miss,
 // начисляет очки, проверяет золото и присылает следующий активный сектор.
-async function resolveTap(payload){
+async function resolveTap(sectorIndex){
   pending = true;
   state.resolved = true; // визуально «гасим» текущий сектор сразу, ждём ответ
-  const wasRealTap = state.mode === 'paid' ? payload.dx !== null : payload.sectorIndex !== -1;
 
   try {
     let res, data;
     if (state.mode === 'paid'){
       res = await apiFetch('/game/tap', {
         method: 'POST',
-        body: JSON.stringify({
-          sessionId: currentSessionId,
-          sectorEventId: currentEventId,
-          dx: payload.dx,
-          dy: payload.dy,
-        }),
+        body: JSON.stringify({ sessionId: currentSessionId, sectorEventId: currentEventId, sectorIndex }),
       });
     } else {
       res = await apiFetch('/game/training/tap', {
         method: 'POST',
-        body: JSON.stringify({ sectorIndex: payload.sectorIndex }),
+        body: JSON.stringify({ sectorIndex }),
       });
     }
 
@@ -1194,7 +1178,7 @@ async function resolveTap(payload){
       state.slowUntil = Date.now() + SLOW_DURATION_MS;
       hideMultTag();
       haptic('miss');
-      if (wasRealTap){
+      if (sectorIndex !== -1){
         sfx('miss');
         shakeMag = 6;
       }
@@ -1303,31 +1287,10 @@ refreshUsdtBtn.addEventListener('click', async () => {
       validUntil: Math.floor(Date.now()/1000) + 300,
       messages: [{ address: prep.toAddress, amount: prep.amountNano, payload: prep.payload }],
     });
-
-    // Сервер теперь реально сверяет платёж в блокчейне по nonce (см.
-    // backend/services/tonVerify.js) — а не просто верит запросу на слово.
-    // Транзакция может дойти до индексатора не сразу, поэтому пробуем
-    // несколько раз с паузой, а не один раз.
-    showToast('Проверяем платёж в блокчейне…');
-    let confirmed = false;
-    for (let attempt = 0; attempt < 6 && !confirmed; attempt++) {
-      if (attempt > 0) await sleep(3000);
-      const res = await apiFetch('/game/session/refresh/usdt/confirm', {
-        method: 'POST',
-        body: JSON.stringify({ nonce: prep.nonce }),
-      });
-      if (res.ok) { confirmed = true; break; }
-      if (res.status !== 202) { // не "платёж ещё не найден" — реальная ошибка, не имеет смысла повторять
-        showToast('Не получилось подтвердить платёж');
-        return;
-      }
-    }
-
-    if (!confirmed) {
-      showToast('Платёж отправлен, но пока не нашёлся в блокчейне — попробуйте нажать «Обновить» ещё раз через минуту');
-      return;
-    }
-
+    // См. предупреждение в backend/routes/game.js: сервер сейчас не
+    // проверяет, что транзакция реально прошла в блокчейне.
+    const res = await apiFetch('/game/session/refresh/usdt/confirm', { method: 'POST' });
+    if (!res.ok){ showToast('Оплата прошла, но сервер не подтвердил'); return; }
     state.cooldownUntil = 0;
     showToast('Сессия обновлена!');
   } catch (err) {
@@ -1666,18 +1629,6 @@ async function loadWallet(){
     const data = await res.json();
     renderWallet(data.address);
   } catch (err) { /* тихо игнорируем, TonConnect UI сам покажет статус подключения */ }
-
-  // Готовим одноразовый challenge для ton_proof ДО того, как человек нажмёт
-  // «Подключить» — без него кошелёк не сможет ничего подписать. Обновляем
-  // каждый раз при заходе на вкладку, этого достаточно (payload живёт 15 мин).
-  try {
-    const payloadRes = await apiFetch('/game/wallet/proof-payload');
-    const payloadData = await payloadRes.json();
-    tonConnectUI.setConnectRequestParameters({ state: 'ready', value: { tonProof: payloadData.payload } });
-  } catch (err) {
-    console.error('proof-payload failed', err);
-    tonConnectUI.setConnectRequestParameters(null);
-  }
 }
 
 function renderWallet(address){
@@ -1691,35 +1642,21 @@ function renderWallet(address){
   }
 }
 
-// Срабатывает при подключении кошелька через виджет TonConnect. Теперь
-// требуем ton_proof — криптографическую подпись, доказывающую владение
-// адресом (см. обсуждение в чате про подмену чужого адреса руками).
+// Срабатывает при подключении кошелька через виджет TonConnect —
+// отправляем адрес на бэкенд для привязки (без проверки ton_proof, см.
+// комментарий в backend/routes/game.js — это сознательное упрощение MVP).
 tonConnectUI.onStatusChange(async (wallet) => {
   if (!wallet){ renderWallet(null); return; }
   const address = wallet.account.address;
-
-  const tonProofItem = wallet.connectItems?.tonProof;
-  if (!tonProofItem || !('proof' in tonProofItem)){
-    // Кошелёк не прислал подпись (не поддерживает ton_proof, или payload
-    // устарел) — без нее сервер не примет привязку, отключаемся сразу,
-    // не оставляя пользователя в подвешенном состоянии.
-    showToast('Этот кошелёк не поддерживает нужную проверку подлинности');
-    await tonConnectUI.disconnect();
-    renderWallet(null);
-    return;
-  }
-
   try {
     const res = await apiFetch('/game/wallet/link', {
       method: 'POST',
-      body: JSON.stringify({ address, proof: tonProofItem.proof }),
+      body: JSON.stringify({ address }),
     });
     if (!res.ok){
       const data = await res.json();
       if (data.error === 'wallet_already_linked'){
         showToast('Этот кошелёк уже привязан к другому аккаунту');
-      } else if (data.error === 'invalid_ton_proof'){
-        showToast('Не получилось подтвердить владение кошельком');
       }
       await tonConnectUI.disconnect();
       renderWallet(null);
@@ -1733,18 +1670,7 @@ tonConnectUI.onStatusChange(async (wallet) => {
 
 walletDisconnectBtn.addEventListener('click', async () => {
   try { await tonConnectUI.disconnect(); } catch (err) { console.error('ton disconnect failed', err); }
-  try {
-    const res = await apiFetch('/game/wallet/unlink', { method: 'POST' });
-    if (!res.ok){
-      console.error('wallet/unlink failed', res.status, await res.text().catch(() => ''));
-      showToast('Не удалось отвязать кошелёк на сервере — попробуйте ещё раз');
-      return; // не показываем «отвязано», раз на сервере это не сработало
-    }
-  } catch (err) {
-    console.error('wallet/unlink network error', err);
-    showToast('Ошибка сети при отвязке кошелька');
-    return;
-  }
+  try { await apiFetch('/game/wallet/unlink', { method: 'POST' }); } catch (err) {}
   renderWallet(null);
 });
 
