@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800;900&family=Manrope:wght@500;700;800&family=JetBrains+Mono:wght@600;700&display=swap" rel="stylesheet">
 <!-- Telegram WebApp API. Вне Telegram просто не найдётся — код ниже это учитывает. -->
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
+<script src="vendor/tonconnect-ui.min.js"></script>
 <style>
   :root{
     --ink:#0b0b0d;
@@ -1089,14 +1089,22 @@ canvas.addEventListener('pointerdown', (e) => {
   const dist = Math.hypot(x,y);
   if (dist > rect.width/2 || dist < rect.width*0.16) return; // мимо колеса / по ступице
 
-  let angle = Math.atan2(y, x);
-  if (angle < 0) angle += Math.PI*2;
-  let local = angle - (state.rotation % (Math.PI*2));
-  local = ((local % (Math.PI*2)) + Math.PI*2) % (Math.PI*2);
-  const tappedSector = Math.floor(local / SECTOR_ANGLE);
-
   ensureAudio(); // резюмим AudioContext синхронно в жесте тапа — иначе браузер не даст играть звук
-  resolveTap(tappedSector);
+
+  if (state.mode === 'paid'){
+    // Платная сессия: шлём СЫРЫЕ координаты клика — сервер сам знает, как
+    // крутится колесо, и сам вычисляет, куда реально попал тап.
+    resolveTap({ dx: x, dy: y });
+  } else {
+    // Тренировка не влияет на реальную ценность — там по-прежнему проще:
+    // шлём готовый индекс сектора.
+    let angle = Math.atan2(y, x);
+    if (angle < 0) angle += Math.PI*2;
+    let local = angle - (state.rotation % (Math.PI*2));
+    local = ((local % (Math.PI*2)) + Math.PI*2) % (Math.PI*2);
+    const tappedSector = Math.floor(local / SECTOR_ANGLE);
+    resolveTap({ sectorIndex: tappedSector });
+  }
 });
 
 const tierFlashEl = document.getElementById('tier-flash');
@@ -1108,27 +1116,34 @@ function triggerTierFlash(){
 
 function handleTimeout(){
   // Окно истекло, тапа не было — это тоже промах, сообщаем серверу тем же
-  // путём, просто с заведомо невалидным индексом сектора.
-  resolveTap(-1);
+  // путём, явно отмечая отсутствие реального тапа.
+  if (state.mode === 'paid') resolveTap({ dx: null, dy: null });
+  else resolveTap({ sectorIndex: -1 });
 }
 
 // Единая точка обработки тапа/промаха — ждём сервер, он решает hit/miss,
 // начисляет очки, проверяет золото и присылает следующий активный сектор.
-async function resolveTap(sectorIndex){
+async function resolveTap(payload){
   pending = true;
   state.resolved = true; // визуально «гасим» текущий сектор сразу, ждём ответ
+  const wasRealTap = state.mode === 'paid' ? payload.dx !== null : payload.sectorIndex !== -1;
 
   try {
     let res, data;
     if (state.mode === 'paid'){
       res = await apiFetch('/game/tap', {
         method: 'POST',
-        body: JSON.stringify({ sessionId: currentSessionId, sectorEventId: currentEventId, sectorIndex }),
+        body: JSON.stringify({
+          sessionId: currentSessionId,
+          sectorEventId: currentEventId,
+          dx: payload.dx,
+          dy: payload.dy,
+        }),
       });
     } else {
       res = await apiFetch('/game/training/tap', {
         method: 'POST',
-        body: JSON.stringify({ sectorIndex }),
+        body: JSON.stringify({ sectorIndex: payload.sectorIndex }),
       });
     }
 
@@ -1178,7 +1193,7 @@ async function resolveTap(sectorIndex){
       state.slowUntil = Date.now() + SLOW_DURATION_MS;
       hideMultTag();
       haptic('miss');
-      if (sectorIndex !== -1){
+      if (wasRealTap){
         sfx('miss');
         shakeMag = 6;
       }
@@ -1218,6 +1233,10 @@ startBtn.addEventListener('click', async () => {
     state.mode = 'paid';
     state.sessionEndAt = new Date(data.endsAt).getTime();
     state.streak = 0;
+    // Сервер всегда начинает отсчёт вращения новой сессии с нуля — сбрасываем
+    // и на клиенте, иначе накопленный за тренировку угол разойдётся с тем,
+    // что считает сервер, и КАЖДЫЙ тап будет мимо (см. обсуждение в чате).
+    state.rotation = 0;
     applyEvent(data.event);
   } catch (err) {
     console.error('session/start failed', err);
