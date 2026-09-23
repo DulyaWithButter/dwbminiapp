@@ -1233,10 +1233,13 @@ startBtn.addEventListener('click', async () => {
     state.mode = 'paid';
     state.sessionEndAt = new Date(data.endsAt).getTime();
     state.streak = 0;
-    // Сервер всегда начинает отсчёт вращения новой сессии с нуля — сбрасываем
-    // и на клиенте, иначе накопленный за тренировку угол разойдётся с тем,
-    // что считает сервер, и КАЖДЫЙ тап будет мимо (см. обсуждение в чате).
-    state.rotation = 0;
+    // Сервер прислал ТОЧНУЮ отметку времени, с которой сам отсчитывает
+    // вращение новой сессии. Простой сброс в 0 создавал постоянное
+    // смещение на всю сессию (на длину сетевого round-trip этого самого
+    // запроса) — досчитываем, сколько вращения набежало за это время,
+    // вместо того чтобы обнулять вслепую (см. обсуждение в чате).
+    const serverCheckpoint = new Date(data.rotationCheckpointAt).getTime();
+    state.rotation = BASE_SPEED * Math.max(0, Date.now() - serverCheckpoint) / 1000;
     applyEvent(data.event);
   } catch (err) {
     console.error('session/start failed', err);
