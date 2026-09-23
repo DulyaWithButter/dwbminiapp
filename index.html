@@ -1199,6 +1199,17 @@ async function resolveTap(payload){
       }
     }
 
+    if (state.mode === 'paid' && data.rotationCheckpointAt !== undefined){
+      // Пересинхронизируем угол ПОСЛЕ КАЖДОГО тапа, а не только при старте
+      // сессии — любая мелкая рассинхронизация (например, из-за момента
+      // старта замедления после промаха) гасится на каждом шаге, вместо
+      // того чтобы копиться и провоцировать всё новые промахи.
+      const serverCheckpoint = new Date(data.rotationCheckpointAt).getTime();
+      const elapsedSec = Math.max(0, Date.now() - serverCheckpoint) / 1000;
+      const catchupSpeed = (Date.now() < state.slowUntil) ? SLOW_SPEED : currentBaseSpeed();
+      state.rotation = data.rotationAtNow + catchupSpeed * elapsedSec;
+    }
+
     if (data.next){
       currentEventId = data.next.id || null; // есть только в paid-режиме
       applyEvent(data.next);
