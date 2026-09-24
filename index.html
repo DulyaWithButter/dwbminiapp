@@ -1320,10 +1320,31 @@ refreshUsdtBtn.addEventListener('click', async () => {
       validUntil: Math.floor(Date.now()/1000) + 300,
       messages: [{ address: prep.toAddress, amount: prep.amountNano, payload: prep.payload }],
     });
-    // См. предупреждение в backend/routes/game.js: сервер сейчас не
-    // проверяет, что транзакция реально прошла в блокчейне.
-    const res = await apiFetch('/game/session/refresh/usdt/confirm', { method: 'POST' });
-    if (!res.ok){ showToast('Оплата прошла, но сервер не подтвердил'); return; }
+
+    // Сервер теперь реально сверяет платёж в блокчейне по nonce (см.
+    // backend/services/tonVerify.js) — а не просто верит запросу на слово.
+    // Транзакция может дойти до индексатора не сразу, поэтому пробуем
+    // несколько раз с паузой, а не один раз.
+    showToast('Проверяем платёж в блокчейне…');
+    let confirmed = false;
+    for (let attempt = 0; attempt < 6 && !confirmed; attempt++) {
+      if (attempt > 0) await sleep(3000);
+      const res = await apiFetch('/game/session/refresh/usdt/confirm', {
+        method: 'POST',
+        body: JSON.stringify({ nonce: prep.nonce }),
+      });
+      if (res.ok) { confirmed = true; break; }
+      if (res.status !== 202) { // не "платёж ещё не найден" — реальная ошибка, не имеет смысла повторять
+        showToast('Не получилось подтвердить платёж');
+        return;
+      }
+    }
+
+    if (!confirmed) {
+      showToast('Платёж отправлен, но пока не нашёлся в блокчейне — попробуйте нажать «Обновить» ещё раз через минуту');
+      return;
+    }
+
     state.cooldownUntil = 0;
     showToast('Сессия обновлена!');
   } catch (err) {
@@ -1703,7 +1724,18 @@ tonConnectUI.onStatusChange(async (wallet) => {
 
 walletDisconnectBtn.addEventListener('click', async () => {
   try { await tonConnectUI.disconnect(); } catch (err) { console.error('ton disconnect failed', err); }
-  try { await apiFetch('/game/wallet/unlink', { method: 'POST' }); } catch (err) {}
+  try {
+    const res = await apiFetch('/game/wallet/unlink', { method: 'POST' });
+    if (!res.ok){
+      console.error('wallet/unlink failed', res.status, await res.text().catch(() => ''));
+      showToast('Не удалось отвязать кошелёк на сервере — попробуйте ещё раз');
+      return; // не показываем «отвязано», раз на сервере это не сработало
+    }
+  } catch (err) {
+    console.error('wallet/unlink network error', err);
+    showToast('Ошибка сети при отвязке кошелька');
+    return;
+  }
   renderWallet(null);
 });
 
