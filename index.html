@@ -1309,17 +1309,17 @@ function sleepOrWake(ms){
   });
 }
 
-async function tryConfirmNonce(nonce, attempts, intervalMs){
+async function tryConfirmNonce(confirmUrl, body, attempts, intervalMs){
   for (let i = 0; i < attempts; i++){
     if (i > 0) await sleepOrWake(intervalMs);
-    const res = await apiFetch('/game/session/refresh/usdt/confirm', {
+    const res = await apiFetch(confirmUrl, {
       method: 'POST',
-      body: JSON.stringify({ nonce }),
+      body: JSON.stringify(body),
     });
-    if (res.status === 200) return 'confirmed'; // res.ok тоже true для 202 (pending) — проверяем точный код
-    if (res.status !== 202) return 'error'; // реальная ошибка — повторять бессмысленно
+    if (res.status === 200) return { outcome: 'confirmed', data: await res.json() }; // res.ok тоже true для 202 (pending) — проверяем точный код
+    if (res.status !== 202) return { outcome: 'error' }; // реальная ошибка — повторять бессмысленно
   }
-  return 'pending';
+  return { outcome: 'pending' };
 }
 
 refreshUsdtBtn.addEventListener('click', async () => {
@@ -1329,7 +1329,11 @@ refreshUsdtBtn.addEventListener('click', async () => {
   if (state.pendingRefreshNonce){
     refreshUsdtBtn.disabled = true;
     showToast('Проверяем предыдущий платёж…');
-    const outcome = await tryConfirmNonce(state.pendingRefreshNonce, 4, 3000);
+    const { outcome } = await tryConfirmNonce(
+      '/game/session/refresh/usdt/confirm',
+      { nonce: state.pendingRefreshNonce },
+      4, 3000
+    );
     if (outcome === 'confirmed'){
       state.pendingRefreshNonce = null;
       state.cooldownUntil = 0;
@@ -1384,7 +1388,11 @@ refreshUsdtBtn.addEventListener('click', async () => {
     // Транзакция может дойти до индексатора не сразу, поэтому пробуем
     // несколько раз с паузой, а не один раз (~30 секунд суммарно).
     showToast('Проверяем платёж в блокчейне…');
-    const outcome = await tryConfirmNonce(prep.nonce, 10, 3000);
+    const { outcome } = await tryConfirmNonce(
+      '/game/session/refresh/usdt/confirm',
+      { nonce: prep.nonce },
+      10, 3000
+    );
 
     if (outcome === 'error'){
       showToast('Не получилось подтвердить платёж');
@@ -1885,6 +1893,35 @@ async function updateStakeQuote(){
 }
 
 stakeSubmitBtn.addEventListener('click', async () => {
+  // Если с прошлого раза остался неподтверждённый платёж за стейкинг —
+  // сначала проверяем именно его, а не заставляем платить заново.
+  if (state.pendingStake){
+    stakeSubmitBtn.disabled = true;
+    showToast('Проверяем предыдущий платёж…');
+    const { outcome, data } = await tryConfirmNonce(
+      '/game/staking/confirm',
+      { ...state.pendingStake },
+      4, 3000
+    );
+    if (outcome === 'confirmed'){
+      state.pendingStake = null;
+      showToast('Стейк создан!');
+      stakeAmountInput.value = '';
+      stakeQuoteEl.textContent = '';
+      loadStakes();
+      stakeSubmitBtn.disabled = false;
+      return;
+    }
+    if (outcome === 'error'){
+      state.pendingStake = null; // этот платёж больше не имеет смысла перепроверять
+    }
+    stakeSubmitBtn.disabled = false;
+    if (outcome === 'pending'){
+      showToast('Платёж всё ещё не нашёлся — попробуйте ещё раз чуть позже, или нажмите снова для новой оплаты');
+      return;
+    }
+  }
+
   const amount = Number(stakeAmountInput.value);
   if (!(amount > 0)){ showToast('Введите сумму'); return; }
   await tonConnectReady; // дождаться восстановления сохранённой сессии
@@ -1910,13 +1947,25 @@ stakeSubmitBtn.addEventListener('click', async () => {
       messages: [message],
     });
 
-    // См. предупреждение в backend/routes/game.js: сервер сейчас не
-    // проверяет, что платёж реально пришёл в блокчейне.
-    const startRes = await apiFetch('/game/staking/start', {
-      method: 'POST',
-      body: JSON.stringify({ termMonths: stakeTerm, currency: stakeCurrency, amount }),
-    });
-    if (!startRes.ok){ showToast('Оплата прошла, но сервер не подтвердил'); return; }
+    // Сервер теперь реально сверяет платёж в блокчейне по nonce (см.
+    // backend/services/tonVerify.js) — а не просто верит запросу на слово.
+    // Транзакция может дойти до индексатора не сразу, поэтому пробуем
+    // несколько раз с паузой, а не один раз (~30 секунд суммарно).
+    showToast('Проверяем платёж в блокчейне…');
+    const confirmBody = { termMonths: stakeTerm, currency: stakeCurrency, amount, nonce: prep.nonce };
+    const { outcome } = await tryConfirmNonce('/game/staking/confirm', confirmBody, 10, 3000);
+
+    if (outcome === 'error'){
+      showToast('Не получилось подтвердить платёж');
+      return;
+    }
+    if (outcome === 'pending'){
+      // Запоминаем платёж — следующий клик по кнопке проверит именно его,
+      // а не создаст новый, пока индексатор наконец не подхватит.
+      state.pendingStake = confirmBody;
+      showToast('Платёж отправлен, но пока не нашёлся в блокчейне — нажмите «Застейкать» ещё раз через минуту, платить заново не нужно');
+      return;
+    }
 
     showToast('Стейк создан!');
     stakeAmountInput.value = '';
