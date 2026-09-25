@@ -1310,23 +1310,15 @@ function sleepOrWake(ms){
 }
 
 async function tryConfirmNonce(nonce, attempts, intervalMs){
-  console.log(`tryConfirmNonce: старт, attempts=${attempts}, visibility=${document.visibilityState}`);
   for (let i = 0; i < attempts; i++){
-    console.log(`tryConfirmNonce: попытка ${i}, visibility=${document.visibilityState}`);
-    if (i > 0){
-      console.log(`tryConfirmNonce: засыпаем перед попыткой ${i}`);
-      await sleepOrWake(intervalMs);
-      console.log(`tryConfirmNonce: проснулись перед попыткой ${i}`);
-    }
+    if (i > 0) await sleepOrWake(intervalMs);
     const res = await apiFetch('/game/session/refresh/usdt/confirm', {
       method: 'POST',
       body: JSON.stringify({ nonce }),
     });
-    console.log(`tryConfirmNonce: попытка ${i} → статус ${res.status}`);
     if (res.status === 200) return 'confirmed'; // res.ok тоже true для 202 (pending) — проверяем точный код
     if (res.status !== 202) return 'error'; // реальная ошибка — повторять бессмысленно
   }
-  console.log('tryConfirmNonce: попытки исчерпаны');
   return 'pending';
 }
 
@@ -1784,7 +1776,16 @@ tonConnectUI.onStatusChange(async (wallet) => {
 });
 
 walletDisconnectBtn.addEventListener('click', async () => {
-  try { await tonConnectUI.disconnect(); } catch (err) { console.error('ton disconnect failed', err); }
+  try {
+    await tonConnectUI.disconnect();
+  } catch (err) {
+    // Если локальная сессия TonConnect уже потеряна (например, тот самый
+    // баг с переподключением после закрытия приложения) — disconnect()
+    // кидает ошибку "wallet is not connected". Это ожидаемо и не мешает
+    // отвязать кошелёк у нас на сервере — не пугаем консоль зря.
+    const alreadyDisconnected = /not connected/i.test(err?.message || '');
+    if (!alreadyDisconnected) console.error('ton disconnect failed', err);
+  }
   try {
     const res = await apiFetch('/game/wallet/unlink', { method: 'POST' });
     if (!res.ok){
