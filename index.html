@@ -1323,7 +1323,7 @@ async function tryConfirmNonce(nonce, attempts, intervalMs){
       body: JSON.stringify({ nonce }),
     });
     console.log(`tryConfirmNonce: попытка ${i} → статус ${res.status}`);
-    if (res.ok) return 'confirmed';
+    if (res.status === 200) return 'confirmed'; // res.ok тоже true для 202 (pending) — проверяем точный код
     if (res.status !== 202) return 'error'; // реальная ошибка — повторять бессмысленно
   }
   console.log('tryConfirmNonce: попытки исчерпаны');
