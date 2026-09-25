@@ -1290,9 +1290,28 @@ refreshKarmaBtn.addEventListener('click', async () => {
 
 // Проверяет один и тот же nonce несколько раз с паузой — переиспользуется
 // и для «висящего» платежа с прошлой попытки, и для свежего.
+// Обычный setTimeout может не сработать вовремя (или вообще), если
+// приложение в этот момент свёрнуто в фон — например, пока открыт диалог
+// подписи в кошельке. Просыпаемся либо по таймеру, либо сразу же, как
+// только приложение снова становится видимым — что наступит раньше.
+function sleepOrWake(ms){
+  return new Promise((resolve) => {
+    const timer = setTimeout(finish, ms);
+    function finish(){
+      clearTimeout(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+      resolve();
+    }
+    function onVisible(){
+      if (document.visibilityState === 'visible') finish();
+    }
+    document.addEventListener('visibilitychange', onVisible);
+  });
+}
+
 async function tryConfirmNonce(nonce, attempts, intervalMs){
   for (let i = 0; i < attempts; i++){
-    if (i > 0) await sleep(intervalMs);
+    if (i > 0) await sleepOrWake(intervalMs);
     const res = await apiFetch('/game/session/refresh/usdt/confirm', {
       method: 'POST',
       body: JSON.stringify({ nonce }),
