@@ -1744,6 +1744,18 @@ async function loadWallet(){
     const data = await res.json();
     renderWallet(data.address);
   } catch (err) { /* тихо игнорируем, TonConnect UI сам покажет статус подключения */ }
+
+  // Готовим одноразовый challenge для ton_proof ДО того, как человек нажмёт
+  // «Подключить» — без него кошелёк не сможет ничего подписать. Обновляем
+  // каждый раз при заходе на вкладку, этого достаточно (payload живёт 15 мин).
+  try {
+    const payloadRes = await apiFetch('/game/wallet/proof-payload');
+    const payloadData = await payloadRes.json();
+    tonConnectUI.setConnectRequestParameters({ state: 'ready', value: { tonProof: payloadData.payload } });
+  } catch (err) {
+    console.error('proof-payload failed', err);
+    tonConnectUI.setConnectRequestParameters(null);
+  }
 }
 
 function renderWallet(address){
@@ -1757,23 +1769,37 @@ function renderWallet(address){
   }
 }
 
-// Срабатывает при подключении кошелька через виджет TonConnect —
-// отправляем адрес на бэкенд для привязки (без проверки ton_proof, см.
-// комментарий в backend/routes/game.js — это сознательное упрощение MVP).
+// Срабатывает при подключении кошелька через виджет TonConnect. Требуем
+// ton_proof — криптографическую подпись, доказывающую владение адресом
+// (иначе можно занять чужой адрес руками через API).
 tonConnectUI.onStatusChange(async (wallet) => {
   if (!wallet){ renderWallet(null); return; }
   const address = wallet.account.address;
+
+  const tonProofItem = wallet.connectItems?.tonProof;
+  if (!tonProofItem || !('proof' in tonProofItem)){
+    // Кошелёк не прислал подпись (не поддерживает ton_proof, или payload
+    // устарел) — без неё сервер не примет привязку, отключаемся сразу,
+    // не оставляя пользователя в подвешенном состоянии.
+    showToast('Этот кошелёк не поддерживает нужную проверку подлинности');
+    await tonConnectUI.disconnect().catch(() => {});
+    renderWallet(null);
+    return;
+  }
+
   try {
     const res = await apiFetch('/game/wallet/link', {
       method: 'POST',
-      body: JSON.stringify({ address }),
+      body: JSON.stringify({ address, proof: tonProofItem.proof }),
     });
     if (!res.ok){
       const data = await res.json();
       if (data.error === 'wallet_already_linked'){
         showToast('Этот кошелёк уже привязан к другому аккаунту');
+      } else if (data.error === 'invalid_ton_proof'){
+        showToast('Не получилось подтвердить владение кошельком');
       }
-      await tonConnectUI.disconnect();
+      await tonConnectUI.disconnect().catch(() => {});
       renderWallet(null);
       return;
     }
