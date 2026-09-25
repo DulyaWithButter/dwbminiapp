@@ -1288,7 +1288,46 @@ refreshKarmaBtn.addEventListener('click', async () => {
   }
 });
 
+// Проверяет один и тот же nonce несколько раз с паузой — переиспользуется
+// и для «висящего» платежа с прошлой попытки, и для свежего.
+async function tryConfirmNonce(nonce, attempts, intervalMs){
+  for (let i = 0; i < attempts; i++){
+    if (i > 0) await sleep(intervalMs);
+    const res = await apiFetch('/game/session/refresh/usdt/confirm', {
+      method: 'POST',
+      body: JSON.stringify({ nonce }),
+    });
+    if (res.ok) return 'confirmed';
+    if (res.status !== 202) return 'error'; // реальная ошибка — повторять бессмысленно
+  }
+  return 'pending';
+}
+
 refreshUsdtBtn.addEventListener('click', async () => {
+  // Если с прошлого раза остался неподтверждённый платёж — сначала
+  // проверяем именно его, а не заставляем платить заново: индексатор мог
+  // просто не успеть за то время, что мы ждали в прошлый раз.
+  if (state.pendingRefreshNonce){
+    refreshUsdtBtn.disabled = true;
+    showToast('Проверяем предыдущий платёж…');
+    const outcome = await tryConfirmNonce(state.pendingRefreshNonce, 4, 3000);
+    if (outcome === 'confirmed'){
+      state.pendingRefreshNonce = null;
+      state.cooldownUntil = 0;
+      showToast('Сессия обновлена!');
+      refreshUsdtBtn.disabled = false;
+      return;
+    }
+    if (outcome === 'error'){
+      state.pendingRefreshNonce = null; // этот платёж больше не имеет смысла перепроверять
+    }
+    refreshUsdtBtn.disabled = false;
+    if (outcome === 'pending'){
+      showToast('Платёж всё ещё не нашёлся — попробуйте ещё раз чуть позже, или нажмите снова для новой оплаты');
+      return;
+    }
+  }
+
   if (Date.now() >= state.cooldownUntil){
     showToast('Кулдаун и так свободен — обновлять нечего');
     return;
@@ -1324,24 +1363,19 @@ refreshUsdtBtn.addEventListener('click', async () => {
     // Сервер теперь реально сверяет платёж в блокчейне по nonce (см.
     // backend/services/tonVerify.js) — а не просто верит запросу на слово.
     // Транзакция может дойти до индексатора не сразу, поэтому пробуем
-    // несколько раз с паузой, а не один раз.
+    // несколько раз с паузой, а не один раз (~30 секунд суммарно).
     showToast('Проверяем платёж в блокчейне…');
-    let confirmed = false;
-    for (let attempt = 0; attempt < 6 && !confirmed; attempt++) {
-      if (attempt > 0) await sleep(3000);
-      const res = await apiFetch('/game/session/refresh/usdt/confirm', {
-        method: 'POST',
-        body: JSON.stringify({ nonce: prep.nonce }),
-      });
-      if (res.ok) { confirmed = true; break; }
-      if (res.status !== 202) { // не "платёж ещё не найден" — реальная ошибка, не имеет смысла повторять
-        showToast('Не получилось подтвердить платёж');
-        return;
-      }
-    }
+    const outcome = await tryConfirmNonce(prep.nonce, 10, 3000);
 
-    if (!confirmed) {
-      showToast('Платёж отправлен, но пока не нашёлся в блокчейне — попробуйте нажать «Обновить» ещё раз через минуту');
+    if (outcome === 'error'){
+      showToast('Не получилось подтвердить платёж');
+      return;
+    }
+    if (outcome === 'pending'){
+      // Запоминаем nonce — следующий клик по кнопке проверит именно этот
+      // платёж, а не создаст новый, пока индексатор наконец не подхватит.
+      state.pendingRefreshNonce = prep.nonce;
+      showToast('Платёж отправлен, но пока не нашёлся в блокчейне — нажмите «Обновить» ещё раз через минуту, платить заново не нужно');
       return;
     }
 
