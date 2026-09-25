@@ -1310,15 +1310,23 @@ function sleepOrWake(ms){
 }
 
 async function tryConfirmNonce(nonce, attempts, intervalMs){
+  console.log(`tryConfirmNonce: старт, attempts=${attempts}, visibility=${document.visibilityState}`);
   for (let i = 0; i < attempts; i++){
-    if (i > 0) await sleepOrWake(intervalMs);
+    console.log(`tryConfirmNonce: попытка ${i}, visibility=${document.visibilityState}`);
+    if (i > 0){
+      console.log(`tryConfirmNonce: засыпаем перед попыткой ${i}`);
+      await sleepOrWake(intervalMs);
+      console.log(`tryConfirmNonce: проснулись перед попыткой ${i}`);
+    }
     const res = await apiFetch('/game/session/refresh/usdt/confirm', {
       method: 'POST',
       body: JSON.stringify({ nonce }),
     });
+    console.log(`tryConfirmNonce: попытка ${i} → статус ${res.status}`);
     if (res.ok) return 'confirmed';
     if (res.status !== 202) return 'error'; // реальная ошибка — повторять бессмысленно
   }
+  console.log('tryConfirmNonce: попытки исчерпаны');
   return 'pending';
 }
 
