@@ -794,10 +794,10 @@ const SESSION_MS = 3 * 60 * 1000; // только для дефолтного т
 // тирах комбо — чисто косметика, хит по-прежнему решает индекс сектора,
 // а не то, где он оказался на экране.
 function currentBaseSpeed(){
-  if (state.streak >= 500) return BASE_SPEED * 2.25; // x8
-  if (state.streak >= 200) return BASE_SPEED * 2.0;  // x7
-  if (state.streak >= 55) return BASE_SPEED * 1.75;  // x5
-  if (state.streak >= 15) return BASE_SPEED * 1.5;   // x3
+  if (state.streak >= 500) return BASE_SPEED * 2.0;  // x8
+  if (state.streak >= 200) return BASE_SPEED * 1.75; // x7
+  if (state.streak >= 55) return BASE_SPEED * 1.5;   // x5
+  if (state.streak >= 15) return BASE_SPEED * 1.25;  // x3
   return BASE_SPEED;
 }
 
