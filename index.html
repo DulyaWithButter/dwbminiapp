@@ -523,6 +523,7 @@
     margin-top:2px;
   }
   .stake-quote{ font-size:12px; color:var(--dim); margin-top:8px; min-height:16px; }
+  .stake-quote.stake-quote-error{ color:var(--orange); font-weight:700; }
   .stake-row{
     background:var(--ink-2);
     border:1.5px solid rgba(255,183,3,.16);
@@ -689,6 +690,7 @@
   <div class="screen" id="screen-sponsors" style="display:none">
     <div class="screen-inner">
       <div class="screen-title">Спонсорам</div>
+      <div class="ref-label" style="margin-bottom:10px">Все вложенные средства будут направлены на развитие проекта</div>
       <div class="stake-card">
         <div class="ref-label">Срок</div>
         <div class="stake-terms" id="stake-terms">
@@ -696,7 +698,7 @@
           <button class="stake-term-btn" data-term="12">1 год<br><span>+50%</span></button>
           <button class="stake-term-btn" data-term="24">2 года<br><span>+100%</span></button>
         </div>
-        <div class="ref-label" style="margin-top:14px">Сумма (USDT)</div>
+        <div class="ref-label" style="margin-top:14px">Сумма (USDT) — <span id="stake-available">доступно…</span></div>
         <input class="stake-amount-input mono" id="stake-amount" type="number" min="0" step="0.01" placeholder="0.00">
         <div class="stake-quote" id="stake-quote"></div>
         <button class="task-btn claim" id="stake-submit-btn" style="width:100%; margin-top:12px">Застейкать</button>
@@ -1217,7 +1219,7 @@ async function resolveTap(payload){
       state.streak = data.streak;
       syncSectorColoring();
       if (state.mode === 'paid') state.points += data.gained;
-      else state.trainingPoints += data.gained;
+      else state.trainingPoints = data.trainingPoints; // «лучшая попытка» считает сервер, не суммируем сами
       showMultTag(data.multiplier);
       haptic('hit');
 
@@ -1634,7 +1636,7 @@ function showScreen(name){
   if (name === 'friends') loadReferral();
   if (name === 'wallet') loadWallet();
   if (name === 'leaderboard') loadLeaderboard();
-  if (name === 'sponsors') loadStakes();
+  if (name === 'sponsors') { loadStakes(); loadStakeAvailable(); }
 }
 navGame.addEventListener('click', () => showScreen('game'));
 navTasks.addEventListener('click', () => showScreen('tasks'));
@@ -1924,10 +1926,12 @@ function renderLbList(container, entries){
 // ---- Стейкинг (вкладка «Спонсорам») ----
 const TERM_LABELS = { 6: '6 мес', 12: '1 год', 24: '2 года' };
 let stakeTerm = 6;
+let stakeAvailable = null; // сколько ещё можно застейкать на выбранный срок
 const stakeCurrency = 'USDT'; // пока единственная валюта стейкинга
 
 const stakeTermsBox = document.getElementById('stake-terms');
 const stakeAmountInput = document.getElementById('stake-amount');
+const stakeAvailableEl = document.getElementById('stake-available');
 const stakeQuoteEl = document.getElementById('stake-quote');
 const stakeSubmitBtn = document.getElementById('stake-submit-btn');
 const stakesListEl = document.getElementById('stakes-list');
@@ -1937,12 +1941,37 @@ stakeTermsBox.querySelectorAll('.stake-term-btn').forEach((btn) => {
     stakeTermsBox.querySelectorAll('.stake-term-btn').forEach((b) => b.classList.remove('active'));
     btn.classList.add('active');
     stakeTerm = Number(btn.dataset.term);
+    loadStakeAvailable();
     updateStakeQuote();
   });
 });
 
+// Максимум 100 USDT на КАЖДЫЙ срок отдельно — подтягиваем остаток при
+// выборе срока и при заходе на вкладку, кнопка блокируется при превышении.
+async function loadStakeAvailable(){
+  stakeAvailableEl.textContent = 'доступно…';
+  try {
+    const res = await apiFetch(`/game/staking/available?termMonths=${stakeTerm}`);
+    const data = await res.json();
+    stakeAvailable = data.available;
+    stakeAvailableEl.textContent = `доступно ${stakeAvailable.toFixed(2)} USDT`;
+  } catch (err) {
+    stakeAvailableEl.textContent = '';
+  }
+  updateStakeButtonState();
+}
+
+function updateStakeButtonState(){
+  const amount = Number(stakeAmountInput.value);
+  const overLimit = stakeAvailable !== null && amount > stakeAvailable;
+  stakeSubmitBtn.disabled = overLimit || !(amount > 0);
+  stakeQuoteEl.classList.toggle('stake-quote-error', overLimit);
+  if (overLimit) stakeQuoteEl.textContent = `Максимум на этот срок — ${stakeAvailable.toFixed(2)} USDT`;
+}
+
 let quoteDebounce = null;
 stakeAmountInput.addEventListener('input', () => {
+  updateStakeButtonState();
   clearTimeout(quoteDebounce);
   quoteDebounce = setTimeout(updateStakeQuote, 350);
 });
@@ -1950,6 +1979,7 @@ stakeAmountInput.addEventListener('input', () => {
 async function updateStakeQuote(){
   const amount = Number(stakeAmountInput.value);
   if (!(amount > 0)){ stakeQuoteEl.textContent = ''; return; }
+  if (stakeAvailable !== null && amount > stakeAvailable) return; // уже показано сообщение о лимите
   stakeQuoteEl.textContent = 'Считаем…';
   try {
     const res = await apiFetch('/game/staking/quote', {
@@ -1987,6 +2017,7 @@ stakeSubmitBtn.addEventListener('click', async () => {
       stakeAmountInput.value = '';
       stakeQuoteEl.textContent = '';
       loadStakes();
+      loadStakeAvailable();
       stakeSubmitBtn.disabled = false;
       return;
     }
@@ -2049,6 +2080,7 @@ stakeSubmitBtn.addEventListener('click', async () => {
     stakeAmountInput.value = '';
     stakeQuoteEl.textContent = '';
     loadStakes();
+    loadStakeAvailable();
   } catch (err) {
     console.error('staking failed', err);
     if (err?.name !== 'UserRejectsError'){
