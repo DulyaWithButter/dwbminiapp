@@ -861,6 +861,15 @@ function resizeCanvas(){
   ctx.setTransform(dpr,0,0,dpr,0,0);
 }
 window.addEventListener('resize', resizeCanvas);
+// Одного window 'resize' недостаточно — если Telegram WebView при
+// возврате из фона на мгновение отрисовался в неверном размере, обычный
+// resize может не сработать вообще, и колесо застрянет смещённым/мелким
+// до перезагрузки страницы. ResizeObserver следит за реальным размером
+// самого элемента, независимо от причины изменения.
+new ResizeObserver(() => resizeCanvas()).observe(canvas);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') resizeCanvas();
+});
 
 // Картинка, которую рисуем поверх активного сектора.
 const handImg = new Image();
