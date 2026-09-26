@@ -213,6 +213,20 @@
     background:var(--ink-2);
   }
   .timer-row .mono{ color:var(--paper); font-weight:700; }
+  .airdrop-withdraw-btn{
+    display:block;
+    width:calc(100% - 24px);
+    margin:8px 12px 0;
+    font-family:'Unbounded',sans-serif;
+    font-weight:800;
+    font-size:13px;
+    color:var(--ink);
+    background:linear-gradient(180deg,var(--gold-2),var(--gold));
+    border:none;
+    border-radius:12px;
+    padding:10px;
+    cursor:pointer;
+  }
 
   .refresh-row{
     display:flex;
@@ -599,6 +613,7 @@
       </div>
     </div>
   </div>
+  <div id="airdrop-slot"></div>
   <div class="timer-row" id="timer-row"></div>
 
   <div class="screen" id="screen-game">
@@ -1523,6 +1538,46 @@ function formatUsdtAmount(value){
   return `${n.toFixed(decimals).replace(/0+$/, '').replace(/\.$/, '')} USDT`;
 }
 
+// Кнопка «Вывод» во время airdrop — создаём/удаляем элемент целиком, а не
+// просто прячем/показываем уже существующий (так просили: «появляется»,
+// а не «активируется»).
+const airdropSlot = document.getElementById('airdrop-slot');
+let airdropBtn = null;
+
+function syncAirdropButton(dropActive){
+  if (dropActive && !airdropBtn){
+    airdropBtn = document.createElement('button');
+    airdropBtn.className = 'airdrop-withdraw-btn';
+    airdropBtn.textContent = 'Вывод';
+    airdropBtn.addEventListener('click', async () => {
+      airdropBtn.disabled = true;
+      try {
+        const res = await apiFetch('/game/airdrop/withdraw', { method: 'POST' });
+        if (!res.ok){
+          const data = await res.json().catch(() => ({}));
+          const messages = {
+            nothing_to_withdraw: 'Нечего выводить — баланс DULYA пуст',
+            wallet_not_linked: 'Сначала привяжите кошелёк на вкладке «Кошелёк»',
+          };
+          showToast(messages[data.error] || 'Не получилось отправить запрос');
+          return;
+        }
+        state.tokens = 0;
+        tokensVal.textContent = 0;
+        showToast('Запрос на вывод отправлен!');
+      } catch (err) {
+        showToast('Ошибка сети');
+      } finally {
+        airdropBtn.disabled = false;
+      }
+    });
+    airdropSlot.appendChild(airdropBtn);
+  } else if (!dropActive && airdropBtn){
+    airdropBtn.remove();
+    airdropBtn = null;
+  }
+}
+
 async function refreshState(){
   const res = await apiFetch('/game/state');
   const data = await res.json();
@@ -1534,6 +1589,7 @@ async function refreshState(){
   state.usdtRefreshCost = data.usdtRefreshCost;
   state.tonTreasuryAddress = data.tonTreasuryAddress;
   refreshUsdtAmountEl.textContent = formatUsdtAmount(data.usdtRefreshCost);
+  syncAirdropButton(data.dropActive);
 
   try {
     const refRes = await apiFetch('/game/referral');
@@ -2119,6 +2175,7 @@ function renderStakes(stakes){
     return;
   }
   stakesListEl.innerHTML = '';
+  const now = Date.now();
   for (const s of stakes){
     const row = document.createElement('div');
     row.className = 'stake-row';
@@ -2128,6 +2185,35 @@ function renderStakes(stakes){
       <div class="sr-sub">До ${endsAt} · статус: ${s.status === 'active' ? 'активен' : s.status}</div>
       <div class="sr-tokens">${s.currentTokens.toFixed(2)} DULYA сейчас (из ${s.stakedTokens.toFixed(2)} купленных)</div>
     `;
+
+    // Кнопка «Вывод» появляется только когда срок реально истёк — не
+    // просто становится активной среди прочего, а создаётся заново.
+    if (s.status === 'active' && new Date(s.endsAt).getTime() <= now){
+      const withdrawBtn = document.createElement('button');
+      withdrawBtn.className = 'airdrop-withdraw-btn';
+      withdrawBtn.style.margin = '8px 0 0';
+      withdrawBtn.style.width = '100%';
+      withdrawBtn.textContent = 'Вывод';
+      withdrawBtn.addEventListener('click', async () => {
+        withdrawBtn.disabled = true;
+        try {
+          const res = await apiFetch(`/game/staking/${s.id}/withdraw`, { method: 'POST' });
+          if (!res.ok){
+            showToast('Не получилось отправить запрос');
+            return;
+          }
+          showToast('Запрос на вывод отправлен!');
+          loadStakes();
+          loadStakeAvailable();
+        } catch (err) {
+          showToast('Ошибка сети');
+        } finally {
+          withdrawBtn.disabled = false;
+        }
+      });
+      row.appendChild(withdrawBtn);
+    }
+
     stakesListEl.appendChild(row);
   }
 }
