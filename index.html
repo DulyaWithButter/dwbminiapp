@@ -854,6 +854,7 @@ let cssSize = 0;
 
 function resizeCanvas(){
   const rect = canvas.getBoundingClientRect();
+  if (rect.width <= 0) return; // экран скрыт (display:none) — не затираем последний нормальный размер
   cssSize = rect.width;
   const dpr = window.devicePixelRatio || 1;
   canvas.width = cssSize * dpr;
@@ -1646,6 +1647,7 @@ function showScreen(name){
   if (name === 'wallet') loadWallet();
   if (name === 'leaderboard') loadLeaderboard();
   if (name === 'sponsors') { loadStakes(); loadStakeAvailable(); }
+  if (name === 'game') resizeCanvas(); // экран был скрыт (display:none) — размер мог не пересчитаться сам
 }
 navGame.addEventListener('click', () => showScreen('game'));
 navTasks.addEventListener('click', () => showScreen('tasks'));
