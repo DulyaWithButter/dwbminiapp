@@ -794,10 +794,8 @@ const SESSION_MS = 3 * 60 * 1000; // только для дефолтного т
 // тирах комбо — чисто косметика, хит по-прежнему решает индекс сектора,
 // а не то, где он оказался на экране.
 function currentBaseSpeed(){
-  if (state.streak >= 500) return BASE_SPEED * 2.0;  // x8
-  if (state.streak >= 200) return BASE_SPEED * 1.75; // x7
-  if (state.streak >= 55) return BASE_SPEED * 1.5;   // x5
-  if (state.streak >= 15) return BASE_SPEED * 1.25;  // x3
+  if (state.streak >= 500) return BASE_SPEED * 1.5;
+  if (state.streak >= 55) return BASE_SPEED * 1.25;
   return BASE_SPEED;
 }
 
@@ -824,6 +822,8 @@ let state = {
   sessionBonusSec: 0, // бонус к длине сессии от рефералов (секунды)
   lastMultiplier: 1,  // для вспышки при достижении нового тира комбо
   lights: [],          // огоньки за ежедневные заходы: [{slotIndex, color}]
+  sectorColors: {},    // sectorIndex -> hex-цвет, для закраски по стрику
+  coloredOrder: [],    // порядок закраски, чтобы снимать последними добавленные
 };
 
 function sleep(ms){ return new Promise((r) => setTimeout(r, ms)); }
@@ -874,6 +874,52 @@ function goldenHue(){
   return `hsl(${43 + hueShift} 100% ${58 + Math.random()*6}%)`;
 }
 let currentGoldenColor = goldenHue();
+
+// ---- Закраска секторов по текущему стрику (косметика, на попадание не
+// влияет — меняется только fillStyle неактивных секторов в drawWheel). ----
+// Палитра специально держится подальше от оранжевого активного (#ff5a1f)
+// и золотого (см. goldenHue()) — чтобы не путать с «дулей».
+const SECTOR_COLOR_PALETTE = ['#3b82f6','#10b981','#a855f7','#ec4899','#06b6d4','#6366f1','#84cc16','#14b8a6'];
+
+function coloredCountForStreak(streak){
+  if (streak >= 500) return 8; // x8
+  if (streak >= 200) return 7; // x7
+  if (streak >= 100) return 6; // x6
+  if (streak >= 55) return 5;  // x5
+  if (streak >= 30) return 4;  // x4
+  if (streak >= 15) return 3;  // x3
+  if (streak >= 5) return 2;   // x2
+  return 1;                    // x1
+}
+
+function resetSectorColoring(){
+  state.sectorColors = {};
+  state.coloredOrder = [];
+  syncSectorColoring();
+}
+
+// Довешивает/снимает закраску секторов до нужного количества под текущий
+// стрик, не трогая уже закрашенные (чтобы не мигало на каждый тап).
+function syncSectorColoring(){
+  const target = coloredCountForStreak(state.streak);
+  while (state.coloredOrder.length < target){
+    const free = [];
+    for (let i=0; i<SECTOR_COUNT; i++) if (!(i in state.sectorColors)) free.push(i);
+    if (free.length === 0) break;
+    const idx = free[Math.floor(Math.random()*free.length)];
+    const used = new Set(Object.values(state.sectorColors));
+    const freeColors = SECTOR_COLOR_PALETTE.filter((c) => !used.has(c));
+    const color = freeColors.length
+      ? freeColors[Math.floor(Math.random()*freeColors.length)]
+      : SECTOR_COLOR_PALETTE[Math.floor(Math.random()*SECTOR_COLOR_PALETTE.length)];
+    state.sectorColors[idx] = color;
+    state.coloredOrder.push(idx);
+  }
+  while (state.coloredOrder.length > target){
+    const idx = state.coloredOrder.pop();
+    delete state.sectorColors[idx];
+  }
+}
 
 // ---- Геометрия колеса (общая для отрисовки и спавна эффектов) ----
 function wheelGeom(){
@@ -976,7 +1022,7 @@ function drawWheel(){
       ctx.shadowColor = 'rgba(255,90,31,.7)';
       ctx.shadowBlur = 16;
     } else {
-      ctx.fillStyle = (i % 2 === 0) ? '#1f1b1e' : '#262024';
+      ctx.fillStyle = state.sectorColors[i] || ((i % 2 === 0) ? '#1f1b1e' : '#262024');
       ctx.shadowBlur = 0;
     }
     ctx.fill();
@@ -1169,6 +1215,7 @@ async function resolveTap(payload){
 
     if (data.hit){
       state.streak = data.streak;
+      syncSectorColoring();
       if (state.mode === 'paid') state.points += data.gained;
       else state.trainingPoints += data.gained;
       showMultTag(data.multiplier);
@@ -1191,6 +1238,7 @@ async function resolveTap(payload){
       }
     } else {
       state.streak = 0;
+      syncSectorColoring();
       state.lastMultiplier = 1;
       state.slowUntil = Date.now() + SLOW_DURATION_MS;
       hideMultTag();
@@ -1246,6 +1294,7 @@ startBtn.addEventListener('click', async () => {
     state.mode = 'paid';
     state.sessionEndAt = new Date(data.endsAt).getTime();
     state.streak = 0;
+    resetSectorColoring();
     // Сервер прислал ТОЧНУЮ отметку времени, с которой сам отсчитывает
     // вращение новой сессии. Простой сброс в 0 создавал постоянное
     // смещение на всю сессию (на длину сетевого round-trip этого самого
@@ -1450,6 +1499,7 @@ async function beginTraining(){
   currentEventId = null;
   state.mode = 'training';
   state.streak = 0;
+  resetSectorColoring();
   applyEvent(data.event);
 }
 
