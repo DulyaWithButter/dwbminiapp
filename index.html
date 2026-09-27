@@ -743,8 +743,8 @@
    на каждый тап (простой вариант, без оптимистичного UI — так решили).
    ========================================================================= */
 
-// Поменяйте на адрес задеплоенного бэкенда, когда он появится.
-const API_BASE = 'https://overpass-irk-composer.ngrok-free.dev';
+// Бэкенд на Railway.
+const API_BASE = 'https://dwb-backend-production.up.railway.app';
 // Тестовый id для игры в обычном браузере вне Telegram (когда initData нет).
 const DEV_FALLBACK_USER_ID = 999001;
 
@@ -850,11 +850,6 @@ async function apiFetch(path, options = {}){
     ...options,
     headers: {
       'Content-Type': 'application/json',
-      // Обходит предупреждающую страницу-заглушку ngrok на бесплатном
-      // тарифе — без этого заголовка ngrok вместо ответа сервера отдаёт
-      // HTML-страницу с предупреждением. Безвредно для любого другого
-      // хостинга, можно оставить навсегда.
-      'ngrok-skip-browser-warning': 'true',
       ...(apiToken ? { Authorization: `Bearer ${apiToken}` } : {}),
       ...(options.headers || {}),
     },
