@@ -845,8 +845,29 @@ let state = {
 
 function sleep(ms){ return new Promise((r) => setTimeout(r, ms)); }
 
+// ---- Синхронизация часов с сервером ----
+// Часы телефона могут расходиться с серверными на секунды, а сервер в
+// облаке — сравнивать их «в лоб» нельзя. Каждый ответ несёт X-Server-Time;
+// по нему и по времени запроса туда-обратно считаем разницу часов.
+// Берём замер с самым коротким round-trip из последних — он точнее всего.
+let clockOffset = 0;          // serverTime ≈ Date.now() + clockOffset
+const clockSamples = [];      // [{ rtt, offset }]
+function serverNow(){ return Date.now() + clockOffset; }
+function toLocalTime(serverTs){ return serverTs - clockOffset; }
+function recordClockSample(t0, t1, res){
+  const st = Number(res.headers.get('X-Server-Time'));
+  if (!Number.isFinite(st) || st <= 0) return;
+  const rtt = t1 - t0;
+  clockSamples.push({ rtt, offset: st - (t0 + t1) / 2 });
+  if (clockSamples.length > 20) clockSamples.shift();
+  let best = clockSamples[0];
+  for (const c of clockSamples) if (c.rtt < best.rtt) best = c;
+  clockOffset = best.offset;
+}
+
 async function apiFetch(path, options = {}){
-  return fetch(`${API_BASE}${path}`, {
+  const t0 = Date.now();
+  const res = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -854,6 +875,8 @@ async function apiFetch(path, options = {}){
       ...(options.headers || {}),
     },
   });
+  recordClockSample(t0, Date.now(), res);
+  return res;
 }
 
 
@@ -999,7 +1022,9 @@ let sparkTimer = 0; // таймер искр вокруг активного з�
 function applyEvent(event){
   state.activeSector = event.sectorIndex;
   state.activeIsGolden = !!event.isGolden;
-  state.activeExpiresAt = new Date(event.expiresAt).getTime();
+  // Окно отсчитываем от момента, когда сектор появился на экране, по
+  // своим часам — не зависит ни от сети, ни от расхождения часов.
+  state.activeExpiresAt = Date.now() + (event.windowMs || 950);
   state.resolved = false;
   if (state.activeIsGolden) currentGoldenColor = goldenHue();
 }
@@ -1160,11 +1185,12 @@ canvas.addEventListener('pointerdown', (e) => {
   if (dist > rect.width/2 || dist < rect.width*0.16) return; // мимо колеса / по ступице
 
   ensureAudio(); // резюмим AudioContext синхронно в жесте тапа — иначе браузер не даст играть звук
+  const tapAt = serverNow(); // момент тапа по серверным часам — сервер считает угол на него
 
   if (state.mode === 'paid'){
     // Платная сессия: шлём СЫРЫЕ координаты клика — сервер сам знает, как
     // крутится колесо, и сам вычисляет, куда реально попал тап.
-    resolveTap({ dx: x, dy: y });
+    resolveTap({ dx: x, dy: y, tapAt });
   } else {
     // Тренировка не влияет на реальную ценность — там по-прежнему проще:
     // шлём готовый индекс сектора.
@@ -1173,7 +1199,7 @@ canvas.addEventListener('pointerdown', (e) => {
     let local = angle - (state.rotation % (Math.PI*2));
     local = ((local % (Math.PI*2)) + Math.PI*2) % (Math.PI*2);
     const tappedSector = Math.floor(local / SECTOR_ANGLE);
-    resolveTap({ sectorIndex: tappedSector });
+    resolveTap({ sectorIndex: tappedSector, tapAt });
   }
 });
 
@@ -1187,8 +1213,8 @@ function triggerTierFlash(){
 function handleTimeout(){
   // Окно истекло, тапа не было — это тоже промах, сообщаем серверу тем же
   // путём, явно отмечая отсутствие реального тапа.
-  if (state.mode === 'paid') resolveTap({ dx: null, dy: null });
-  else resolveTap({ sectorIndex: -1 });
+  if (state.mode === 'paid') resolveTap({ dx: null, dy: null, tapAt: serverNow() });
+  else resolveTap({ sectorIndex: -1, tapAt: serverNow() });
 }
 
 // Единая точка обработки тапа/промаха — ждём сервер, он решает hit/miss,
@@ -1208,12 +1234,13 @@ async function resolveTap(payload){
           sectorEventId: currentEventId,
           dx: payload.dx,
           dy: payload.dy,
+          tapAt: payload.tapAt,
         }),
       });
     } else {
       res = await apiFetch('/game/training/tap', {
         method: 'POST',
-        body: JSON.stringify({ sectorIndex: payload.sectorIndex }),
+        body: JSON.stringify({ sectorIndex: payload.sectorIndex, tapAt: payload.tapAt }),
       });
     }
 
@@ -1262,7 +1289,12 @@ async function resolveTap(payload){
       state.streak = 0;
       syncSectorColoring();
       state.lastMultiplier = 1;
-      state.slowUntil = Date.now() + SLOW_DURATION_MS;
+      // Замедление началось в момент тапа на сервере — берём его точное
+      // время (в платной сессии), иначе колесо тормозило бы дольше, чем
+      // считает сервер, на длину сетевой задержки.
+      state.slowUntil = data.slowUntil
+        ? toLocalTime(new Date(data.slowUntil).getTime())
+        : Date.now() + SLOW_DURATION_MS;
       hideMultTag();
       haptic('miss');
       if (wasRealTap){
@@ -1277,7 +1309,7 @@ async function resolveTap(payload){
       // старта замедления после промаха) гасится на каждом шаге, вместо
       // того чтобы копиться и провоцировать всё новые промахи.
       const serverCheckpoint = new Date(data.rotationCheckpointAt).getTime();
-      const elapsedSec = Math.max(0, Date.now() - serverCheckpoint) / 1000;
+      const elapsedSec = Math.max(0, serverNow() - serverCheckpoint) / 1000;
       const catchupSpeed = (Date.now() < state.slowUntil) ? SLOW_SPEED : currentBaseSpeed();
       state.rotation = data.rotationAtNow + catchupSpeed * elapsedSec;
     }
@@ -1305,7 +1337,7 @@ startBtn.addEventListener('click', async () => {
     const res = await apiFetch('/game/session/start', { method: 'POST' });
     if (res.status === 429){
       const data = await res.json();
-      state.cooldownUntil = new Date(data.cooldownUntil).getTime();
+      state.cooldownUntil = toLocalTime(new Date(data.cooldownUntil).getTime());
       return;
     }
     if (!res.ok) return;
@@ -1314,7 +1346,7 @@ startBtn.addEventListener('click', async () => {
     currentSessionId = data.sessionId;
     currentEventId = data.event.id;
     state.mode = 'paid';
-    state.sessionEndAt = new Date(data.endsAt).getTime();
+    state.sessionEndAt = toLocalTime(new Date(data.endsAt).getTime());
     state.streak = 0;
     resetSectorColoring();
     // Сервер прислал ТОЧНУЮ отметку времени, с которой сам отсчитывает
@@ -1323,7 +1355,7 @@ startBtn.addEventListener('click', async () => {
     // запроса) — досчитываем, сколько вращения набежало за это время,
     // вместо того чтобы обнулять вслепую (см. обсуждение в чате).
     const serverCheckpoint = new Date(data.rotationCheckpointAt).getTime();
-    state.rotation = BASE_SPEED * Math.max(0, Date.now() - serverCheckpoint) / 1000;
+    state.rotation = BASE_SPEED * Math.max(0, serverNow() - serverCheckpoint) / 1000;
     applyEvent(data.event);
   } catch (err) {
     console.error('session/start failed', err);
@@ -1579,7 +1611,7 @@ async function refreshState(){
   state.points = data.points;
   state.trainingPoints = data.trainingPoints;
   state.tokens = data.tokens;
-  state.cooldownUntil = data.cooldownUntil ? new Date(data.cooldownUntil).getTime() : 0;
+  state.cooldownUntil = data.cooldownUntil ? toLocalTime(new Date(data.cooldownUntil).getTime()) : 0;
   state.karmaRefreshCost = data.karmaRefreshCost;
   state.usdtRefreshCost = data.usdtRefreshCost;
   state.tonTreasuryAddress = data.tonTreasuryAddress;
