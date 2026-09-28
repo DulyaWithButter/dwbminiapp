@@ -1886,16 +1886,10 @@ function shortAddr(addr){
   return addr.length > 14 ? `${addr.slice(0,6)}…${addr.slice(-6)}` : addr;
 }
 
-async function loadWallet(){
-  try {
-    const res = await apiFetch('/game/wallet');
-    const data = await res.json();
-    renderWallet(data.address);
-  } catch (err) { /* тихо игнорируем, TonConnect UI сам покажет статус подключения */ }
-
-  // Готовим одноразовый challenge для ton_proof ДО того, как человек нажмёт
-  // «Подключить» — без него кошелёк не сможет ничего подписать. Обновляем
-  // каждый раз при заходе на вкладку, этого достаточно (payload живёт 15 мин).
+// Одноразовый challenge для ton_proof — готовим ДО того, как человек нажмёт
+// «Подключить», без него кошелёк не сможет ничего подписать. Payload
+// одноразовый: после любой попытки (успешной или отклонённой) нужен новый.
+async function prepareProofPayload(){
   try {
     const payloadRes = await apiFetch('/game/wallet/proof-payload');
     const payloadData = await payloadRes.json();
@@ -1904,6 +1898,16 @@ async function loadWallet(){
     console.error('proof-payload failed', err);
     tonConnectUI.setConnectRequestParameters(null);
   }
+}
+
+async function loadWallet(){
+  try {
+    const res = await apiFetch('/game/wallet');
+    const data = await res.json();
+    renderWallet(data.address);
+  } catch (err) { /* тихо игнорируем, TonConnect UI сам покажет статус подключения */ }
+
+  await prepareProofPayload();
 }
 
 function renderWallet(address){
@@ -1952,7 +1956,7 @@ function renderWallet(address){
     try {
       const res = await apiFetch('/game/wallet/link', {
         method: 'POST',
-        body: JSON.stringify({ address, proof: tonProofItem.proof }),
+        body: JSON.stringify({ address, proof: tonProofItem.proof, walletStateInit: wallet.account.walletStateInit }),
       });
       if (!res.ok){
         const data = await res.json();
@@ -1964,6 +1968,7 @@ function renderWallet(address){
         }
         await tonConnectUI.disconnect().catch(() => {});
         renderWallet(null);
+        prepareProofPayload(); // прежний payload уже использован — готовим новый
         return;
       }
       renderWallet(address);
