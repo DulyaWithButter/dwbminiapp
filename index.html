@@ -1919,59 +1919,59 @@ function renderWallet(address){
 
 // Восстановление сохранённой сессии — НЕ то же самое, что новое
 // подключение: свежей подписи ton_proof тут неоткуда взяться (кошелёк
-// ничего заново не подписывал). Раньше это обрабатывалось той же веткой,
-// что и новое подключение, и код решал «подписи нет — отключаемся»,
-// разрывая рабочую сессию при каждой перезагрузке. Обрабатываем
-// восстановление отдельно, один раз, до того как начнём слушать
-// последующие события через onStatusChange.
+// ничего заново не подписывал). Библиотека сообщает о восстановленной
+// сессии через тот же onStatusChange, ПОЕЖДЕ чем завершится промис
+// connectionRestored. Поэтому слушатель подключаем только ПОСЛЕ него:
+// восстановленное состояние читаем напрямую (без требования подписи), а
+// onStatusChange получает уже только настоящие новые подключения и явные
+// отключения. (Раньше слушатель регистрировался сразу при загрузке, ловил
+// событие восстановления, не находил подписи и сам отключал кошелёк.)
 (async () => {
   await tonConnectReady;
   if (tonConnectUI.connected && tonConnectUI.account){
     renderWallet(tonConnectUI.account.address);
   }
-})();
 
-// Сюда попадают только события ПОСЛЕ восстановления — то есть настоящие
-// новые подключения или явные отключения, инициированные человеком именно
-// сейчас. Здесь ton_proof обязателен — криптографическая подпись,
-// доказывающая владение адресом (иначе можно занять чужой адрес руками
-// через API).
-tonConnectUI.onStatusChange(async (wallet) => {
-  if (!wallet){ renderWallet(null); return; }
-  const address = wallet.account.address;
+  // Здесь ton_proof обязателен — криптографическая подпись, доказывающая
+  // владение адресом (иначе можно занять чужой адрес руками через API).
+  tonConnectUI.onStatusChange(async (wallet) => {
+    if (!wallet){ renderWallet(null); return; }
+    const address = wallet.account.address;
 
-  const tonProofItem = wallet.connectItems?.tonProof;
-  if (!tonProofItem || !('proof' in tonProofItem)){
-    // Кошелёк не прислал подпись (не поддерживает ton_proof, или payload
-    // устарел) — без неё сервер не примет привязку, отключаемся сразу,
-    // не оставляя пользователя в подвешенном состоянии.
-    showToast('Этот кошелёк не поддерживает нужную проверку подлинности');
-    await tonConnectUI.disconnect().catch(() => {});
-    renderWallet(null);
-    return;
-  }
-
-  try {
-    const res = await apiFetch('/game/wallet/link', {
-      method: 'POST',
-      body: JSON.stringify({ address, proof: tonProofItem.proof }),
-    });
-    if (!res.ok){
-      const data = await res.json();
-      if (data.error === 'wallet_already_linked'){
-        showToast('Этот кошелёк уже привязан к другому аккаунту');
-      } else if (data.error === 'invalid_ton_proof'){
-        showToast('Не получилось подтвердить владение кошельком');
-      }
+    const tonProofItem = wallet.connectItems?.tonProof;
+    if (!tonProofItem || !('proof' in tonProofItem)){
+      // Кошелёк не прислал подпись (не поддерживает ton_proof, или payload
+      // устарел) — без неё сервер не примет привязку, отключаемся сразу,
+      // не оставляя пользователя в подвешенном состоянии.
+      showToast('Этот кошелёк не поддерживает нужную проверку подлинности');
       await tonConnectUI.disconnect().catch(() => {});
       renderWallet(null);
       return;
     }
-    renderWallet(address);
-  } catch (err) {
-    showToast('Не удалось привязать кошелёк');
-  }
-});
+
+    try {
+      const res = await apiFetch('/game/wallet/link', {
+        method: 'POST',
+        body: JSON.stringify({ address, proof: tonProofItem.proof }),
+      });
+      if (!res.ok){
+        const data = await res.json();
+        console.error('wallet/link rejected', res.status, data);
+        if (data.error === 'wallet_already_linked'){
+          showToast('Этот кошелёк уже привязан к другому аккаунту');
+        } else if (data.error === 'invalid_ton_proof'){
+          showToast('Не получилось подтвердить владение кошельком');
+        }
+        await tonConnectUI.disconnect().catch(() => {});
+        renderWallet(null);
+        return;
+      }
+      renderWallet(address);
+    } catch (err) {
+      showToast('Не удалось привязать кошелёк');
+    }
+  });
+})();
 
 walletDisconnectBtn.addEventListener('click', async () => {
   try {
