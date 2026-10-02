@@ -227,6 +227,11 @@
     padding:10px;
     cursor:pointer;
   }
+  .airdrop-withdraw-btn:disabled{
+    background:var(--ink-2);
+    color:var(--dim);
+    cursor:default;
+  }
 
   .refresh-row{
     display:flex;
@@ -613,7 +618,7 @@
       </div>
     </div>
   </div>
-  <div id="airdrop-slot"></div>
+  <button class="airdrop-withdraw-btn" id="airdrop-btn" disabled>Дроп не назначен</button>
   <div class="timer-row" id="timer-row"></div>
 
   <div class="screen" id="screen-game">
@@ -840,6 +845,7 @@ let state = {
   lastMultiplier: 1,  // для вспышки при достижении нового тира комбо
   lights: [],          // огоньки за ежедневные заходы: [{slotIndex, color}]
   sectorColors: {},    // sectorIndex -> hex-цвет, для закраски по стрику
+  drop: null,          // фаза airdrop с сервера: {phase, startsAt, endsAt}
   coloredOrder: [],    // порядок закраски, чтобы снимать последними добавленные
 };
 
@@ -1565,45 +1571,65 @@ function formatUsdtAmount(value){
   return `${n.toFixed(decimals).replace(/0+$/, '').replace(/\.$/, '')} USDT`;
 }
 
-// Кнопка «Вывод» во время airdrop — создаём/удаляем элемент целиком, а не
-// просто прячем/показываем уже существующий (так просили: «появляется»,
-// а не «активируется»).
-const airdropSlot = document.getElementById('airdrop-slot');
-let airdropBtn = null;
+// Кнопка «Вывод» во время airdrop — теперь всегда на экране, меняется
+// только текст/доступность: обратный отсчёт до дропа → активна 3 дня →
+// «дроп завершён». Фактическую проверку фазы сервер всё равно делает сам
+// при нажатии — это не единственная защита.
+const airdropBtn = document.getElementById('airdrop-btn');
 
-function syncAirdropButton(dropActive){
-  if (dropActive && !airdropBtn){
-    airdropBtn = document.createElement('button');
-    airdropBtn.className = 'airdrop-withdraw-btn';
+function fmtClockDays(ms){
+  const s = Math.max(0, Math.ceil(ms/1000));
+  const d = Math.floor(s/86400);
+  const rest = fmtClockLong((s - d*86400) * 1000);
+  return d > 0 ? `${d}д ${rest}` : rest;
+}
+
+// Вызывается каждый тик (как и остальные таймеры) — сама обратного отсчёта
+// не делает отдельный setInterval, использует общий игровой цикл.
+function updateAirdropButton(){
+  const drop = state.drop;
+  if (!drop || drop.phase === 'none'){
+    airdropBtn.disabled = true;
+    airdropBtn.textContent = 'Дроп не назначен';
+    return;
+  }
+  const now = Date.now();
+  if (drop.phase === 'waiting' || now < new Date(drop.startsAt).getTime()){
+    airdropBtn.disabled = true;
+    airdropBtn.textContent = `До дропа: ${fmtClockDays(new Date(drop.startsAt).getTime() - now)}`;
+  } else if (drop.phase === 'active' && now < new Date(drop.endsAt).getTime()){
+    airdropBtn.disabled = false;
     airdropBtn.textContent = 'Вывод';
-    airdropBtn.addEventListener('click', async () => {
-      airdropBtn.disabled = true;
-      try {
-        const res = await apiFetch('/game/airdrop/withdraw', { method: 'POST' });
-        if (!res.ok){
-          const data = await res.json().catch(() => ({}));
-          const messages = {
-            nothing_to_withdraw: 'Нечего выводить — баланс DULYA пуст',
-            wallet_not_linked: 'Сначала привяжите кошелёк на вкладке «Кошелёк»',
-          };
-          showToast(messages[data.error] || 'Не получилось отправить запрос');
-          return;
-        }
-        state.tokens = 0;
-        tokensVal.textContent = 0;
-        showToast('Запрос на вывод отправлен!');
-      } catch (err) {
-        showToast('Ошибка сети');
-      } finally {
-        airdropBtn.disabled = false;
-      }
-    });
-    airdropSlot.appendChild(airdropBtn);
-  } else if (!dropActive && airdropBtn){
-    airdropBtn.remove();
-    airdropBtn = null;
+  } else {
+    airdropBtn.disabled = true;
+    airdropBtn.textContent = 'Дроп завершён';
   }
 }
+
+airdropBtn.addEventListener('click', async () => {
+  if (airdropBtn.disabled) return;
+  airdropBtn.disabled = true;
+  try {
+    const res = await apiFetch('/game/airdrop/withdraw', { method: 'POST' });
+    if (!res.ok){
+      const data = await res.json().catch(() => ({}));
+      const messages = {
+        nothing_to_withdraw: 'Нечего выводить — баланс DULYA пуст',
+        wallet_not_linked: 'Сначала привяжите кошелёк на вкладке «Кошелёк»',
+        drop_not_active: 'Окно вывода сейчас закрыто',
+      };
+      showToast(messages[data.error] || 'Не получилось отправить запрос');
+      return;
+    }
+    state.tokens = 0;
+    tokensVal.textContent = 0;
+    showToast('Запрос на вывод отправлен!');
+  } catch (err) {
+    showToast('Ошибка сети');
+  } finally {
+    updateAirdropButton(); // сама вернёт disabled=false, если фаза ещё 'active'
+  }
+});
 
 async function refreshState(){
   const res = await apiFetch('/game/state');
@@ -1616,7 +1642,8 @@ async function refreshState(){
   state.usdtRefreshCost = data.usdtRefreshCost;
   state.tonTreasuryAddress = data.tonTreasuryAddress;
   refreshUsdtAmountEl.textContent = formatUsdtAmount(data.usdtRefreshCost);
-  syncAirdropButton(data.dropActive);
+  state.drop = data.drop;
+  updateAirdropButton();
 
   try {
     const refRes = await apiFetch('/game/referral');
@@ -1653,6 +1680,7 @@ function updateHud(){
   trainingVal.textContent = state.trainingPoints;
   tokensVal.textContent = state.tokens;
   streakVal.textContent = state.streak;
+  updateAirdropButton();
 
   // Карма тускнеет вне платной сессии, Потенциал — вне тренировки.
   statKarma.classList.toggle('dim', state.mode !== 'paid');
