@@ -38,7 +38,7 @@
     height:100dvh;
     display:flex;
     flex-direction:column;
-    padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+    padding: var(--sat, env(safe-area-inset-top)) 0 var(--sab, env(safe-area-inset-bottom));
   }
   h1,.display{ font-family:'Unbounded',sans-serif; margin:0; }
   .mono{ font-family:'JetBrains Mono',monospace; }
@@ -979,6 +979,26 @@ const DEV_FALLBACK_USER_ID = 999001;
 // ---- Telegram WebApp (безопасно работает и вне Telegram) ----
 const tg = window.Telegram?.WebApp;
 if (tg) { tg.ready(); tg.expand(); }
+
+// Полный экран на телефоне (Bot API 8.0+) и отступы под вырез/кнопки Telegram.
+function applyTgInsets(){
+  try {
+    const a = tg.safeAreaInset || {}, c = tg.contentSafeAreaInset || {};
+    const top = (a.top || 0) + (c.top || 0), bottom = (a.bottom || 0) + (c.bottom || 0);
+    const root = document.documentElement.style;
+    if (top > 0) root.setProperty('--sat', top + 'px'); else root.removeProperty('--sat');
+    if (bottom > 0) root.setProperty('--sab', bottom + 'px'); else root.removeProperty('--sab');
+  } catch (e) {}
+}
+if (tg) {
+  try {
+    ['safeAreaChanged', 'contentSafeAreaChanged', 'fullscreenChanged'].forEach((ev) => tg.onEvent(ev, applyTgInsets));
+    applyTgInsets();
+    if ((tg.platform === 'android' || tg.platform === 'ios') && tg.isVersionAtLeast && tg.isVersionAtLeast('8.0') && !tg.isFullscreen) {
+      tg.requestFullscreen();
+    }
+  } catch (e) { console.error('fullscreen', e); }
+}
 // ---- Настройки (звук / вибрация) — сохраняются ----
 // localStorage в Telegram WebView иногда сбрасывается при полном закрытии,
 // поэтому дублируем в Telegram CloudStorage (если доступен).
