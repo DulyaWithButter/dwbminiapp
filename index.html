@@ -51,23 +51,6 @@
     padding:0;
     border-bottom:3px solid var(--orange);
   }
-  .mute-btn{
-    position:absolute;
-    top:calc(100% + 9px);
-    right:12px;
-    width:26px;
-    height:26px;
-    border-radius:50%;
-    border:none;
-    background:var(--ink-2);
-    color:var(--paper);
-    font-size:13px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    cursor:pointer;
-    z-index:5;
-  }
   .topbar-row{
     display:grid;
     grid-template-columns: 1fr 1.15fr 1fr;
@@ -232,6 +215,34 @@
     color:var(--dim);
     cursor:default;
   }
+
+  .game-subnav{
+    display:flex; gap:6px; padding:8px 12px 0; overflow-x:auto; flex:none;
+  }
+  .subnav-btn{
+    flex:1 0 auto; white-space:nowrap;
+    font-family:'Unbounded',sans-serif; font-weight:700; font-size:11px;
+    color:var(--dim); background:var(--ink-2);
+    border:1px solid transparent; border-radius:10px; padding:8px 10px; cursor:pointer;
+  }
+  .subnav-btn.active{ color:var(--ink); background:linear-gradient(180deg,var(--gold-2),var(--gold)); }
+  .game-pane{ flex:1; display:none; flex-direction:column; min-height:0; }
+  .game-pane.active{ display:flex; }
+  .wip-pane{ align-items:center; justify-content:center; text-align:center; gap:8px; padding:40px 24px; }
+  .wip-pane .wip-title{ font-family:'Unbounded',sans-serif; font-weight:800; font-size:16px; color:var(--paper); }
+  .wip-pane .wip-sub{ font-size:13px; color:var(--dim); }
+  .setting-row{
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    padding:12px 0; border-bottom:1px solid rgba(255,244,227,.08);
+  }
+  .setting-row:last-child{ border-bottom:none; }
+  .setting-label{ font-size:14px; color:var(--paper); }
+  .switch{ position:relative; width:46px; height:26px; flex:none; border:none; border-radius:13px;
+    background:var(--ink-2); cursor:pointer; transition:background .2s; padding:0; }
+  .switch::after{ content:''; position:absolute; top:3px; left:3px; width:20px; height:20px; border-radius:50%;
+    background:var(--paper); transition:transform .2s; }
+  .switch.on{ background:var(--gold); }
+  .switch.on::after{ transform:translateX(20px); background:var(--ink); }
 
   .refresh-row{
     display:flex;
@@ -602,7 +613,6 @@
   </div>
 
   <div class="topbar">
-    <button class="mute-btn" id="mute-btn">🔊</button>
     <div class="topbar-row">
       <div class="stat left" id="stat-karma">
         <span class="label">Карма</span>
@@ -622,6 +632,16 @@
   <div class="timer-row" id="timer-row"></div>
 
   <div class="screen" id="screen-game">
+    <div class="game-subnav" id="game-subnav">
+      <button class="subnav-btn" data-sub="duel">Вызов на бой</button>
+      <button class="subnav-btn" data-sub="crowd">Толпа</button>
+      <button class="subnav-btn active" data-sub="wheel">Колесо кармы</button>
+      <button class="subnav-btn" data-sub="gathering">Сборище</button>
+    </div>
+    <div class="game-pane wip-pane" id="pane-duel"><div class="wip-title">Вызов на бой</div><div class="wip-sub">В разработке</div></div>
+    <div class="game-pane wip-pane" id="pane-crowd"><div class="wip-title">Толпа</div><div class="wip-sub">В разработке</div></div>
+    <div class="game-pane wip-pane" id="pane-gathering"><div class="wip-title">Сборище</div><div class="wip-sub">В разработке</div></div>
+    <div class="game-pane active" id="pane-wheel">
     <div class="stage">
       <canvas id="wheel"></canvas>
       <div class="tier-flash" id="tier-flash"></div>
@@ -647,6 +667,7 @@
       </div>
       <div class="dev-note">DULYA backend · игра синхронизирована с сервером</div>
     </div>
+    </div>
   </div>
 
   <div class="screen" id="screen-tasks" style="display:none">
@@ -668,24 +689,6 @@
       </div>
       <div class="ref-count" id="ref-count">0 друзей приглашено</div>
       <div class="ref-tiers" id="ref-tiers"></div>
-    </div>
-  </div>
-
-  <div class="screen" id="screen-wallet" style="display:none">
-    <div class="screen-inner">
-      <div class="screen-title">Кошелёк</div>
-      <div class="wallet-card">
-        <div id="wallet-disconnected">
-          <div class="wallet-msg">Привяжите TON-кошелёк, чтобы участвовать в итоговом Airdrop.</div>
-          <div id="ton-connect-button"></div>
-        </div>
-        <div id="wallet-connected" style="display:none">
-          <div class="ref-label">Привязанный кошелёк</div>
-          <div class="wallet-addr mono" id="wallet-addr">—</div>
-          <button class="task-btn" id="wallet-disconnect-btn" style="margin-top:10px">Отвязать</button>
-        </div>
-      </div>
-      <div class="wallet-note">Один кошелёк можно привязать только к одному аккаунту. В планах — внутриигровые покупки за DULYA.</div>
     </div>
   </div>
 
@@ -728,13 +731,37 @@
     </div>
   </div>
 
+  <div class="screen" id="screen-settings" style="display:none">
+    <div class="screen-inner">
+      <div class="screen-title">Настройки</div>
+      <div class="ref-label">Кошелёк</div>
+      <div class="wallet-card">
+        <div id="wallet-disconnected">
+          <div class="wallet-msg">Привяжите TON-кошелёк, чтобы участвовать в итоговом Airdrop.</div>
+          <div id="ton-connect-button"></div>
+        </div>
+        <div id="wallet-connected" style="display:none">
+          <div class="ref-label">Привязанный кошелёк</div>
+          <div class="wallet-addr mono" id="wallet-addr">—</div>
+          <button class="task-btn" id="wallet-disconnect-btn" style="margin-top:10px">Отвязать</button>
+        </div>
+      </div>
+      <div class="ref-label" style="margin-top:6px">Звук и вибрация</div>
+      <div class="wallet-card">
+        <div class="setting-row"><span class="setting-label">🔊 Звук</span><button class="switch on" id="sw-sound" aria-label="Звук"></button></div>
+        <div class="setting-row"><span class="setting-label">📳 Вибрация</span><button class="switch on" id="sw-vibration" aria-label="Вибрация"></button></div>
+      </div>
+      <div class="wallet-note">Один кошелёк можно привязать только к одному аккаунту. В планах — внутриигровые покупки за DULYA.</div>
+    </div>
+  </div>
+
   <nav>
     <button class="nav-btn active" id="nav-game"><span class="dot">🎯</span>Игра</button>
     <button class="nav-btn" id="nav-tasks"><span class="dot">📋</span>Задания</button>
     <button class="nav-btn" id="nav-friends"><span class="dot">👥</span>Друзья</button>
-    <button class="nav-btn" id="nav-wallet"><span class="dot">👛</span>Кошелёк</button>
     <button class="nav-btn" id="nav-leaderboard"><span class="dot">🏆</span>Лидерборд</button>
     <button class="nav-btn" id="nav-sponsors"><span class="dot">💎</span>Стейк</button>
+    <button class="nav-btn" id="nav-settings"><span class="dot">⚙️</span>Настройки</button>
   </nav>
 
 </div>
@@ -756,7 +783,25 @@ const DEV_FALLBACK_USER_ID = 999001;
 // ---- Telegram WebApp (безопасно работает и вне Telegram) ----
 const tg = window.Telegram?.WebApp;
 if (tg) { tg.ready(); tg.expand(); }
+// ---- Настройки (звук / вибрация) — сохраняются ----
+// localStorage в Telegram WebView иногда сбрасывается при полном закрытии,
+// поэтому дублируем в Telegram CloudStorage (если доступен).
+const SETTINGS_KEY = 'dwb_settings';
+const settings = { sound: true, vibration: true };
+function applySettingsObj(o){
+  if (o && typeof o === 'object'){
+    if (typeof o.sound === 'boolean') settings.sound = o.sound;
+    if (typeof o.vibration === 'boolean') settings.vibration = o.vibration;
+  }
+}
+try { applySettingsObj(JSON.parse(localStorage.getItem(SETTINGS_KEY) || 'null')); } catch (e) {}
+function saveSettings(){
+  const raw = JSON.stringify(settings);
+  try { localStorage.setItem(SETTINGS_KEY, raw); } catch (e) {}
+  try { tg?.CloudStorage?.setItem(SETTINGS_KEY, raw, () => {}); } catch (e) {}
+}
 function haptic(type){
+  if (!settings.vibration) return;
   if (!tg?.HapticFeedback) return;
   if (type === 'hit') tg.HapticFeedback.impactOccurred('light');
   if (type === 'miss') tg.HapticFeedback.impactOccurred('rigid');
@@ -784,10 +829,8 @@ function playTone(freq, duration, type = 'sine', peak = 0.15, delay = 0){
   osc.start(t0);
   osc.stop(t0 + duration + 0.02);
 }
-let soundMuted = false;
-
 function sfx(type){
-  if (soundMuted) return;
+  if (!settings.sound) return;
   if (type === 'hit') playTone(880, 0.08, 'sine', 0.12);
   else if (type === 'miss') playTone(150, 0.16, 'sawtooth', 0.08);
   else if (type === 'golden'){
@@ -797,11 +840,28 @@ function sfx(type){
   }
 }
 
-const muteBtn = document.getElementById('mute-btn');
-muteBtn.addEventListener('click', () => {
-  soundMuted = !soundMuted;
-  muteBtn.textContent = soundMuted ? '🔇' : '🔊';
+const swSound = document.getElementById('sw-sound');
+const swVibration = document.getElementById('sw-vibration');
+function renderSettings(){
+  swSound.classList.toggle('on', settings.sound);
+  swVibration.classList.toggle('on', settings.vibration);
+}
+renderSettings();
+swSound.addEventListener('click', () => {
+  settings.sound = !settings.sound; renderSettings(); saveSettings();
+  if (settings.sound){ ensureAudio(); sfx('hit'); }
 });
+swVibration.addEventListener('click', () => {
+  settings.vibration = !settings.vibration; renderSettings(); saveSettings();
+  if (settings.vibration) haptic('hit');
+});
+try {
+  tg?.CloudStorage?.getItem(SETTINGS_KEY, (err, val) => {
+    if (err || !val) return;
+    try { applySettingsObj(JSON.parse(val)); renderSettings();
+      try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) {} } catch (e) {}
+  });
+} catch (e) {}
 
 // ---- Визуальные константы (сама игровая логика теперь на сервере —
 // см. src/services/gameEngine.js в бэкенде, значения должны совпадать) ----
@@ -1138,6 +1198,9 @@ function drawLoginLights(cx, cy, r){
 }
 
 // ---- Игровой цикл ----
+let currentScreen = 'game';
+let currentSub = 'wheel';
+function wheelActive(){ return currentScreen === 'game' && currentSub === 'wheel'; }
 let lastFrameT = performance.now();
 function tick(frameNow){
   const dt = (frameNow - lastFrameT)/1000;
@@ -1173,7 +1236,7 @@ function tick(frameNow){
   wheelPulse = Math.max(0, wheelPulse - dt*2.5);
   shakeMag = Math.max(0, shakeMag - dt*26);
 
-  drawWheel();
+  if (wheelActive()) drawWheel(); // вне «Колеса кармы» не рисуем (вращение и логика продолжают считаться)
   updateHud();
   requestAnimationFrame(tick);
 }
@@ -1472,7 +1535,7 @@ refreshUsdtBtn.addEventListener('click', async () => {
   }
   await tonConnectReady; // дождаться восстановления сохранённой сессии
   if (!tonConnectUI.connected){
-    showToast('Сначала подключите кошелёк на вкладке «Кошелёк»');
+    showToast('Сначала подключите кошелёк в «Настройках»');
     return;
   }
   refreshUsdtBtn.disabled = true;
@@ -1615,7 +1678,7 @@ airdropBtn.addEventListener('click', async () => {
       const data = await res.json().catch(() => ({}));
       const messages = {
         nothing_to_withdraw: 'Нечего выводить — баланс DULYA пуст',
-        wallet_not_linked: 'Сначала привяжите кошелёк на вкладке «Кошелёк»',
+        wallet_not_linked: 'Сначала привяжите кошелёк в «Настройках»',
         drop_not_active: 'Окно вывода сейчас закрыто',
       };
       showToast(messages[data.error] || 'Не получилось отправить запрос');
@@ -1732,40 +1795,56 @@ const screens = {
   game: document.getElementById('screen-game'),
   tasks: document.getElementById('screen-tasks'),
   friends: document.getElementById('screen-friends'),
-  wallet: document.getElementById('screen-wallet'),
+  settings: document.getElementById('screen-settings'),
   leaderboard: document.getElementById('screen-leaderboard'),
   sponsors: document.getElementById('screen-sponsors'),
 };
+const order = ['game','tasks','friends','leaderboard','sponsors','settings'];
 const navGame = document.getElementById('nav-game');
 const navTasks = document.getElementById('nav-tasks');
 const navFriends = document.getElementById('nav-friends');
-const navWallet = document.getElementById('nav-wallet');
 const navLeaderboard = document.getElementById('nav-leaderboard');
 const navSponsors = document.getElementById('nav-sponsors');
+const navSettings = document.getElementById('nav-settings');
+
+function showSub(sub){
+  currentSub = sub;
+  document.querySelectorAll('.subnav-btn').forEach(b => b.classList.toggle('active', b.dataset.sub === sub));
+  document.querySelectorAll('.game-pane').forEach(p => p.classList.toggle('active', p.id === 'pane-' + sub));
+  timerRow.style.display = (currentScreen === 'game' && sub === 'wheel') ? 'block' : 'none';
+  if (sub === 'wheel') resizeCanvas();
+  else if (state.mode === 'paid') showToast('Платная сессия идёт — колесо ждёт!');
+}
+document.getElementById('game-subnav').addEventListener('click', (e) => {
+  const b = e.target.closest('.subnav-btn');
+  if (b) showSub(b.dataset.sub);
+});
 
 function showScreen(name){
+  currentScreen = name;
   for (const key in screens) screens[key].style.display = (key === name) ? 'flex' : 'none';
-  timerRow.style.display = (name === 'game') ? 'block' : 'none';
+  timerRow.style.display = (name === 'game' && currentSub === 'wheel') ? 'block' : 'none';
   navGame.classList.toggle('active', name === 'game');
   navTasks.classList.toggle('active', name === 'tasks');
   navFriends.classList.toggle('active', name === 'friends');
-  navWallet.classList.toggle('active', name === 'wallet');
   navLeaderboard.classList.toggle('active', name === 'leaderboard');
   navSponsors.classList.toggle('active', name === 'sponsors');
+  navSettings.classList.toggle('active', name === 'settings');
 
   if (name === 'tasks') loadTasks();
   if (name === 'friends') loadReferral();
-  if (name === 'wallet') loadWallet();
+  if (name === 'settings') loadWallet();
   if (name === 'leaderboard') loadLeaderboard();
   if (name === 'sponsors') { loadStakes(); loadStakeAvailable(); }
-  if (name === 'game') resizeCanvas(); // экран был скрыт (display:none) — размер мог не пересчитаться сам
+  if (name === 'game' && currentSub === 'wheel') resizeCanvas(); // экран был скрыт (display:none) — размер мог не пересчитаться сам
 }
 navGame.addEventListener('click', () => showScreen('game'));
 navTasks.addEventListener('click', () => showScreen('tasks'));
 navFriends.addEventListener('click', () => showScreen('friends'));
-navWallet.addEventListener('click', () => showScreen('wallet'));
+
 navLeaderboard.addEventListener('click', () => showScreen('leaderboard'));
 navSponsors.addEventListener('click', () => showScreen('sponsors'));
+navSettings.addEventListener('click', () => showScreen('settings'));
 
 // ---- Задания ----
 const tasksList = document.getElementById('tasks-list');
@@ -2177,7 +2256,7 @@ stakeSubmitBtn.addEventListener('click', async () => {
   const amount = Number(stakeAmountInput.value);
   if (!(amount > 0)){ showToast('Введите сумму'); return; }
   await tonConnectReady; // дождаться восстановления сохранённой сессии
-  if (!tonConnectUI.connected){ showToast('Сначала подключите кошелёк на вкладке «Кошелёк»'); return; }
+  if (!tonConnectUI.connected){ showToast('Сначала подключите кошелёк в «Настройках»'); return; }
 
   stakeSubmitBtn.disabled = true;
   try {
