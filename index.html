@@ -603,6 +603,34 @@
   }
 
   /* ---- Вызов на бой ---- */
+  /* ---- Толпа ---- */
+  #pane-crowd{ position:relative; }
+  .crowd-scene{ position:relative; flex:1; overflow:hidden; background:#b0e1e5; user-select:none; -webkit-user-select:none; }
+  #crowd-bg{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:50% 100%; pointer-events:none; }
+  .crowd-top{ position:absolute; top:6px; left:0; right:0; z-index:8; display:flex; flex-direction:column; align-items:center; pointer-events:none; }
+  .crowd-timer{ font-family:'Unbounded',sans-serif; font-weight:800; font-size:12px; color:var(--paper); background:rgba(13,19,34,.62); padding:4px 12px; border-radius:999px; }
+  #crowd-scale{ width:min(62%,250px); height:auto; margin-top:2px; overflow:visible; }
+  .crowd-team{ position:absolute; top:34px; z-index:8; font-size:11px; font-weight:800; letter-spacing:.03em; padding:3px 9px; border-radius:10px; background:rgba(13,19,34,.62); color:var(--paper); pointer-events:none; line-height:1.3; text-align:center; }
+  .crowd-team.l{ left:8px; } .crowd-team.r{ right:8px; }
+  .crowd-team i{ display:block; font-style:normal; font-weight:600; font-size:10px; opacity:.75; }
+  .crowd-team.l b{ color:#ffd05a; } .crowd-team.r b{ color:#9be26f; }
+  .crowd-fighter{ position:absolute; pointer-events:none; transition:left .6s ease, top .6s ease, width .6s ease; animation:crowdin .5s ease-out; }
+  @keyframes crowdin{ from{ opacity:0; } to{ opacity:1; } }
+  .crowd-fighter .crowd-spr{ width:100%; aspect-ratio:569/512; background-repeat:no-repeat; background-size:500% 400%; transform-origin:44% 81%; }
+  .crowd-fighter.r .crowd-spr{ transform:scaleX(-1); }
+  .crowd-me{ position:absolute; top:-4%; transform:translateX(-50%); font-size:10px; font-weight:800; color:var(--ink); background:var(--gold-2); padding:1px 7px; border-radius:8px; box-shadow:0 2px 6px #0007; white-space:nowrap; }
+  .crowd-me::after{ content:''; position:absolute; left:50%; bottom:-4px; margin-left:-4px; border:4px solid transparent; border-top-color:var(--gold-2); border-bottom:0; }
+  .crowd-more{ position:absolute; z-index:7; bottom:calc(var(--crowd-panel,110px) + 18px); font-size:11px; font-weight:800; color:var(--paper); background:rgba(13,19,34,.62); padding:2px 8px; border-radius:9px; pointer-events:none; }
+  .crowd-panel{ position:absolute; left:8px; right:8px; bottom:8px; z-index:9; background:rgba(13,19,34,.82); backdrop-filter:blur(5px); border-radius:16px; padding:10px 12px; display:flex; flex-direction:column; gap:8px; font-size:12px; color:var(--paper); }
+  .crowd-panel .crow{ display:flex; gap:6px; align-items:center; }
+  .crowd-panel .crow > *{ flex:1; }
+  .crowd-panel .crow .task-btn{ padding:9px 4px; }
+  .crowd-panel input{ min-width:0; width:100%; background:var(--ink); color:var(--paper); border:1.5px solid rgba(255,244,227,.18); border-radius:10px; padding:8px 10px; font-size:14px; outline:none; }
+  .crowd-panel .sub{ color:var(--dim); font-size:11px; line-height:1.4; }
+  .crowd-panel b{ color:var(--gold-2); }
+  .crowd-modal{ position:fixed; inset:0; z-index:300; background:rgba(0,0,0,.6); display:none; align-items:center; justify-content:center; padding:24px; }
+  .crowd-modal .box{ background:var(--ink-2); border:1.5px solid rgba(255,244,227,.15); border-radius:18px; padding:20px; max-width:320px; width:100%; text-align:center; display:flex; flex-direction:column; gap:10px; font-size:13px; line-height:1.5; }
+  .crowd-modal .t{ font-family:'Unbounded',sans-serif; font-weight:800; font-size:16px; color:var(--gold-2); }
   .duel-pane{ overflow-y:auto; }
   .duel-lobby{ padding:14px 16px 18px; display:flex; flex-direction:column; gap:12px; }
   .duel-stats{ display:flex; justify-content:space-between; gap:8px; font-size:12px; color:var(--dim); }
@@ -786,7 +814,29 @@
         </div>
       </div>
     </div>
-    <div class="game-pane wip-pane" id="pane-crowd"><div class="wip-title">Толпа</div><div class="wip-sub">В разработке</div></div>
+    <div class="game-pane" id="pane-crowd">
+      <div class="crowd-scene" id="crowd-scene">
+        <img id="crowd-bg" alt="" src="assets/crowd/bg.webp">
+        <div class="crowd-top">
+          <div class="crowd-timer" id="crowd-timer">—</div>
+          <svg id="crowd-scale" viewBox="0 0 300 140" aria-hidden="true">
+            <defs>
+              <linearGradient id="cs-wood" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b98445"/><stop offset="1" stop-color="#7a4f26"/></linearGradient>
+            </defs>
+            <path d="M120 134 L180 134 L168 122 L132 122 Z" fill="#5d3b1c"/>
+            <rect x="145" y="30" width="10" height="94" rx="3" fill="url(#cs-wood)"/>
+            <g id="cs-beam"><rect x="38" y="30" width="224" height="7" rx="3.5" fill="url(#cs-wood)"/><circle cx="150" cy="33.5" r="7" fill="#e8b24a" stroke="#7a4f26" stroke-width="2"/></g>
+            <g id="cs-panL"><path id="cs-strL" d="" stroke="#5d3b1c" stroke-width="1.5" fill="none"/><g id="cs-bowlL"><g id="cs-pileL"><path d="M-30 0 Q-22 -26 0 -30 Q22 -26 30 0 Z" fill="#e0a526"/><circle cx="-10" cy="-14" r="4" fill="#ffd85e"/><circle cx="8" cy="-19" r="4" fill="#ffd85e"/><circle cx="14" cy="-8" r="3.5" fill="#ffd85e"/></g><path d="M-36 0 L36 0 Q32 16 0 17 Q-32 16 -36 0 Z" fill="#8a5a2b" stroke="#5d3b1c" stroke-width="1.5"/></g></g>
+            <g id="cs-panR"><path id="cs-strR" d="" stroke="#5d3b1c" stroke-width="1.5" fill="none"/><g id="cs-bowlR"><g id="cs-pileR"><path d="M-30 0 Q-22 -26 0 -30 Q22 -26 30 0 Z" fill="#6fae4a"/><circle cx="-10" cy="-14" r="4" fill="#ffd85e"/><circle cx="8" cy="-19" r="4" fill="#ffd85e"/><circle cx="14" cy="-8" r="3.5" fill="#ffd85e"/></g><path d="M-36 0 L36 0 Q32 16 0 17 Q-32 16 -36 0 Z" fill="#8a5a2b" stroke="#5d3b1c" stroke-width="1.5"/></g></g>
+          </svg>
+        </div>
+        <div class="crowd-team l"><b id="crowd-name-l">Солома</b><i id="crowd-cnt-l">0</i></div>
+        <div class="crowd-team r"><b id="crowd-name-r">Сено</b><i id="crowd-cnt-r">0</i></div>
+        <div id="crowd-field"></div>
+        <div class="crowd-panel" id="crowd-panel"></div>
+      </div>
+    </div>
+    <div class="crowd-modal" id="crowd-modal"><div class="box"><div class="t" id="crowd-modal-t"></div><div id="crowd-modal-b"></div><button class="task-btn claim" id="crowd-modal-ok">Понятно</button></div></div>
     <div class="game-pane wip-pane" id="pane-gathering"><div class="wip-title">Сборище</div><div class="wip-sub">В разработке</div></div>
     <div class="game-pane active" id="pane-wheel">
     <div class="stage">
@@ -1962,6 +2012,7 @@ function showSub(sub){
   else if (state.mode === 'paid') showToast('Платная сессия идёт — колесо ждёт!');
   if (sub === 'duel') duelOnOpen();
   else if (duelBusy()) showToast('Бой идёт — вернись в «Вызов на бой»!');
+  crowdSync();
 }
 document.getElementById('game-subnav').addEventListener('click', (e) => {
   const b = e.target.closest('.subnav-btn');
@@ -1985,6 +2036,7 @@ function showScreen(name){
   if (name === 'settings') loadWallet();
   if (name === 'leaderboard') loadLeaderboard();
   if (name === 'sponsors') { loadStakes(); loadStakeAvailable(); }
+  crowdSync();
   if (name === 'game' && currentSub === 'wheel') resizeCanvas(); // экран был скрыт (display:none) — размер мог не пересчитаться сам
 }
 navGame.addEventListener('click', () => showScreen('game'));
@@ -2999,6 +3051,303 @@ function duelOnOpen(){
   duelLayout();
 }
 
+
+// =========================================================================
+// ТОЛПА — стенка на стенку. Суммы вкладов сервер НЕ отдаёт: только расстановка
+// бойцов, числа игроков и «положение весов» (tilt/fill). Опрос раз в 5 секунд
+// и только пока вкладка открыта.
+// =========================================================================
+const CROWD_TIERS = [ // по числу бойцов на стороне: колонки, ряды, ширина бойца (доля ширины сцены)
+  { n:1,  cols:1, rows:1, s:0.60 }, { n:2,  cols:2, rows:1, s:0.50 }, { n:4,  cols:2, rows:2, s:0.40 },
+  { n:6,  cols:3, rows:2, s:0.34 }, { n:12, cols:4, rows:3, s:0.26 }, { n:24, cols:6, rows:4, s:0.20 },
+  { n:40, cols:8, rows:5, s:0.16 },
+];
+const CROWD_BG = { w:784, h:1373, fieldTop:0.466 };
+const CROWD_SHOWN_MAX = 40;
+const crowd = {
+  data: null, els: new Map(), anims: [], scaleNow: { tilt:0, fl:0, fr:0 }, scaleTarget: { tilt:0, fl:0, fr:0 },
+  poll: null, driver: null, clock: null, skew: 0, busy: false, amount: '', ambientAt: 0, loaded: false,
+};
+const $c = (id) => document.getElementById(id);
+const crowdActive = () => currentScreen === 'game' && currentSub === 'crowd' && !document.hidden;
+const crowdSide = { l: 'Солома', r: 'Сено' };
+
+function crowdFmtTime(ms){
+  const s = Math.max(0, Math.floor(ms / 1000));
+  const p = (x) => String(x).padStart(2, '0');
+  return `${p(Math.floor(s / 3600))}:${p(Math.floor(s % 3600 / 60))}:${p(s % 60)}`;
+}
+
+async function crowdApi(path, body){
+  const res = await apiFetch('/crowd' + path, body ? { method:'POST', body: JSON.stringify(body) } : {});
+  const j = await res.json().catch(() => ({}));
+  if (!res.ok) { const e = new Error(j.error || ('HTTP ' + res.status)); e.code = j.error; throw e; }
+  return j;
+}
+
+async function crowdLoad(){
+  if (crowd.busy) return;
+  try { crowdApply(await crowdApi('/state')); }
+  catch (err) { console.error('crowd state', err); if (!crowd.loaded) crowdPanel(); }
+}
+
+function crowdApply(d){
+  const first = !crowd.data;
+  crowd.data = d; crowd.loaded = true;
+  crowd.skew = d.serverNow - Date.now();
+  state.points = d.points; updateHud();
+  crowdSyncFighters(d);
+  const sc = d.scale || { tilt:0, fillL:0, fillR:0 };
+  crowd.scaleTarget = { tilt: sc.tilt, fl: sc.fillL, fr: sc.fillR };
+  if (first) crowd.scaleNow = { ...crowd.scaleTarget, tilt: 0, fl: 0, fr: 0 };
+  $c('crowd-cnt-l').textContent = d.counts ? d.counts.l + ' бойц.' : '';
+  $c('crowd-cnt-r').textContent = d.counts ? d.counts.r + ' бойц.' : '';
+  crowdPanel();
+  crowdLayout();
+  crowdTickClock();
+  crowdMaybeResult();
+}
+
+// ---------- расстановка ----------
+function crowdTier(n){ return CROWD_TIERS.find((t) => n <= t.n) || CROWD_TIERS[CROWD_TIERS.length - 1]; }
+
+function crowdLayout(){
+  const d = crowd.data; if (!d || !d.players) { $c('crowd-field').innerHTML = ''; crowd.els.clear(); return; }
+  const scene = $c('crowd-scene'), W = scene.clientWidth, H = scene.clientHeight;
+  if (!W || !H) return;
+  const panelH = $c('crowd-panel').offsetHeight;
+  scene.style.setProperty('--crowd-panel', panelH + 'px');
+  const k = Math.max(W / CROWD_BG.w, H / CROWD_BG.h), drawn = CROWD_BG.h * k;
+  const fieldTop = H - drawn + CROWD_BG.fieldTop * drawn;
+  const bottom = H - panelH - 14;
+  const top = Math.max(fieldTop + 4, 120);
+  const avail = Math.max(60, bottom - top);
+  const half = W / 2;
+  for (const side of ['l', 'r']) {
+    const list = d.players.filter((p) => p.side === side);   // порядок = место по вкладу
+    const n = list.length; if (!n) continue;
+    const t = crowdTier(n), cols = t.cols;
+    const rows = Math.min(t.rows, Math.ceil(n / cols));
+    // слоты: сначала передний ряд, внутри ряда — от центра поля к краю
+    const slots = [];
+    for (let r = rows - 1; r >= 0; r--) {
+      const inRow = Math.min(cols, n - slots.length);
+      for (let j = 0; j < inRow; j++) slots.push({ r, j, inRow });
+    }
+    list.forEach((p, i) => {
+      const sl = slots[i]; const el = crowd.els.get(p.id); if (!el) return;
+      const persp = rows === 1 ? 1 : 0.72 + 0.28 * sl.r / (rows - 1);
+      const bw = t.s * W * persp, bh = bw * 512 / 569;
+      const stagger = (sl.r % 2) * 0.25;
+      const frac = Math.min(0.96, (sl.j + 0.5 + stagger) / cols);       // 0 — у центра поля, 1 — у края
+      const bodyX = side === 'l' ? half - frac * half + half * 0.04 : half + frac * half - half * 0.04;
+      const left = side === 'l' ? bodyX - 0.44 * bw : bodyX - 0.56 * bw;
+      const feetY = rows === 1 ? top + avail * 0.80 : top + avail * (0.30 + 0.70 * sl.r / (rows - 1));
+      el.style.width = bw + 'px'; el.style.left = left + 'px'; el.style.top = (feetY - 0.8125 * bh) + 'px';
+      el.style.zIndex = String(10 + Math.round(feetY) + (p.id === crowdMyId() ? 1000 : 0));
+    });
+  }
+  // счётчик «ещё N»
+  const over = (d.counts ? ['l', 'r'].map((s) => Math.max(0, d.counts[s] - d.players.filter((p) => p.side === s).length)) : [0, 0]);
+  crowdMore('l', over[0]); crowdMore('r', over[1]);
+}
+function crowdMore(side, n){
+  let el = $c('crowd-more-' + side);
+  if (!n) { if (el) el.remove(); return; }
+  if (!el) { el = document.createElement('div'); el.id = 'crowd-more-' + side; el.className = 'crowd-more'; $c('crowd-scene').appendChild(el); }
+  el.textContent = '+' + n + ' ещё'; el.style[side === 'l' ? 'left' : 'right'] = '10px';
+}
+let crowdMeCache = null;
+function crowdMyId(){ return crowdMeCache; }
+
+function crowdSyncFighters(d){
+  const field = $c('crowd-field'); const seen = new Set();
+  (d.players || []).forEach((p) => {
+    seen.add(p.id);
+    let el = crowd.els.get(p.id);
+    if (!el) {
+      el = document.createElement('div'); el.className = 'crowd-fighter ' + p.side;
+      el.innerHTML = '<div class="crowd-spr"></div>';
+      el.firstChild.style.backgroundImage = `url(assets/duel/${p.fighter}.webp)`;
+      el.firstChild.style.backgroundPosition = crowdPos(12);
+      el._ver = p.ver; el._fighter = p.fighter; el._side = p.side; el._id = p.id;
+      field.appendChild(el); crowd.els.set(p.id, el);
+    } else if (p.ver > el._ver) { el._ver = p.ver; crowdPunch(el); }
+  });
+  for (const [id, el] of crowd.els) if (!seen.has(id)) { el.remove(); crowd.els.delete(id); }
+  // отметка «Вы»: сервер не отдаёт id в явном виде, но игрок сам знает свой id через me.uid
+  crowdMeCache = d.me && d.me.joined ? d.me.uid : null;
+  for (const [id, el] of crowd.els) {
+    const mine = id === crowdMeCache;
+    let tag = el.querySelector('.crowd-me');
+    if (mine && !tag) { tag = document.createElement('div'); tag.className = 'crowd-me'; tag.textContent = 'Вы'; tag.style.left = el._side === 'l' ? '44%' : '56%'; el.appendChild(tag); }
+    if (!mine && tag) tag.remove();
+  }
+}
+
+// ---------- анимация ударов ----------
+const crowdPos = (f) => `${(f % 5) / 4 * 100}% ${Math.floor(f / 5) / 3 * 100}%`;
+function crowdPunch(el){
+  if (el._punching) return;
+  const seq = (DUEL_SEQ[el._fighter] || DUEL_SEQ_DEFAULT).jab; el._punching = true;
+  crowd.anims.push({ el, seq, i: 0, t: 0 });
+}
+function crowdStep(){
+  if (!crowdActive()) return;
+  const now = performance.now();
+  // весы
+  const s = crowd.scaleNow, tg2 = crowd.scaleTarget;
+  s.tilt += (tg2.tilt - s.tilt) * 0.08; s.fl += (tg2.fl - s.fl) * 0.08; s.fr += (tg2.fr - s.fr) * 0.08;
+  crowdDrawScale(now);
+  // удары
+  if (crowd.anims.length) {
+    crowd.anims = crowd.anims.filter((a) => {
+      if (now - a.t < 1000 / DUEL_JFPS) return true;
+      a.t = now;
+      a.el.firstChild.style.backgroundPosition = crowdPos(a.seq[a.i]);
+      a.i += 1;
+      if (a.i >= a.seq.length) { a.el.firstChild.style.backgroundPosition = crowdPos(12); a.el._punching = false; return false; }
+      return true;
+    });
+  }
+  // фоновые удары, чтобы толпа не стояла столбом
+  if (now > crowd.ambientAt && crowd.els.size) {
+    crowd.ambientAt = now + 450 + Math.random() * 500;
+    const arr = [...crowd.els.values()];
+    const k = Math.min(3, Math.ceil(arr.length / 6));
+    for (let i = 0; i < k; i++) crowdPunch(arr[Math.floor(Math.random() * arr.length)]);
+  }
+}
+function crowdDrawScale(now){
+  const s = crowd.scaleNow;
+  const sway = Math.sin(now / 900) * 0.6;
+  const a = (s.tilt * 16 + sway) * Math.PI / 180;           // >0: правая чаша вниз
+  const cx = 150, cy = 33.5, R = 112;
+  const lx = cx - R * Math.cos(a), ly = cy - R * Math.sin(a);
+  const rx = cx + R * Math.cos(a), ry = cy + R * Math.sin(a);
+  $c('cs-beam').setAttribute('transform', `rotate(${(a * 180 / Math.PI).toFixed(2)} ${cx} ${cy})`);
+  const drop = 42;
+  for (const [side, x, y] of [['L', lx, ly], ['R', rx, ry]]) {
+    $c('cs-pan' + side).setAttribute('transform', `translate(${x.toFixed(1)} ${(y + drop).toFixed(1)})`);
+    $c('cs-str' + side).setAttribute('d', `M0 ${-drop} L-34 0 M0 ${-drop} L34 0`);
+    const f = Math.max(0.0001, side === 'L' ? s.fl : s.fr);
+    $c('cs-pile' + side).setAttribute('transform', `scale(${(0.6 + 0.6 * f).toFixed(3)} ${(f * 1.15).toFixed(3)})`);
+  }
+}
+
+// ---------- панель управления ----------
+function crowdPanel(){
+  const p = $c('crowd-panel'), d = crowd.data;
+  if (!d) { p.innerHTML = '<div class="sub">Загрузка…</div>'; return; }
+  if (d.phase !== 'active') {
+    p.innerHTML = `<div style="font-weight:700">⚔️ «Толпа» — стенка на стенку</div>
+      <div class="sub">Битва начнётся через <b id="crowd-next">—</b>. Каждый день с 08:00 до 18:00 UTC. Анонс придёт в канал.</div>`;
+  } else if (!d.me.joined) {
+    p.innerHTML = `<button class="task-btn claim duel-big" id="crowd-join">⚔️ Вступить в битву</button>
+      <div class="sub">Сторона и боец достанутся случайно. Вкладывай карму — побеждает сторона с большей суммой. Команду сменить нельзя.</div>`;
+    $c('crowd-join').onclick = crowdJoin;
+  } else {
+    const me = d.me;
+    p.innerHTML = `<div class="crow" style="justify-content:space-between"><span>Вы за «<b>${crowdSide[me.side]}</b>»</span><span style="text-align:right">Вложено: <b>${me.invested}</b></span></div>
+      <div class="crow">${[100, 500, 1000].map((v) => `<button class="task-btn" data-add="${v}">+${v}</button>`).join('')}<button class="task-btn" data-add="all">Всё</button></div>
+      <div class="crow"><input id="crowd-amount" inputmode="numeric" placeholder="Сумма кармы" value="${crowd.amount}"><button class="task-btn claim" id="crowd-invest">Вложить</button></div>
+      <div class="sub">У вас кармы: <b>${d.points}</b> · награда победителям — от ${d.minReward} вложенной кармы</div>`;
+    const inp = $c('crowd-amount');
+    inp.oninput = () => { inp.value = inp.value.replace(/\D/g, '').slice(0, 10); crowd.amount = inp.value; };
+    p.querySelectorAll('[data-add]').forEach((b) => b.onclick = () => {
+      const v = b.dataset.add === 'all' ? d.points : Number(b.dataset.add);
+      inp.value = String(Math.min(v, d.points) || ''); crowd.amount = inp.value;
+    });
+    $c('crowd-invest').onclick = crowdInvest;
+  }
+  crowdTickClock();
+}
+async function crowdJoin(){
+  if (crowd.busy) return; crowd.busy = true;
+  try { const d = await crowdApi('/join', {}); crowd.busy = false; haptic('hit'); crowdApply(d); }
+  catch (err) { showToast(err.code === 'no_event' ? 'Битва уже закончилась' : 'Не получилось вступить'); }
+  finally { crowd.busy = false; }
+}
+async function crowdInvest(){
+  const amount = Number(crowd.amount);
+  if (!amount || amount < 1) { showToast('Введите сумму кармы'); return; }
+  if (amount > (crowd.data?.points || 0)) { showToast('Не хватает кармы'); return; }
+  if (crowd.busy) return; crowd.busy = true;
+  try {
+    const d = await crowdApi('/invest', { amount }); crowd.busy = false; crowd.amount = '';
+    haptic('hit'); sfx && sfx('hit'); crowdApply(d);
+    const mine = crowd.els.get(crowdMeCache); if (mine) crowdPunch(mine);
+    showToast('Вложено: ' + amount);
+  } catch (err) {
+    showToast(err.code === 'not_enough_points' ? 'Не хватает кармы' : err.code === 'no_event' ? 'Битва уже закончилась' : 'Ошибка сети');
+  } finally { crowd.busy = false; }
+}
+
+function crowdTickClock(){
+  const d = crowd.data; if (!d) return;
+  const now = Date.now() + crowd.skew, t = $c('crowd-timer');
+  if (d.phase === 'active') {
+    t.textContent = 'До конца: ' + crowdFmtTime(d.event.endsAt - now);
+    if (now >= d.event.endsAt + 1000 && !crowd.endPoll) { crowd.endPoll = true; setTimeout(() => { crowd.endPoll = false; crowdLoad(); }, 3000); }
+  } else {
+    t.textContent = 'Старт через: ' + crowdFmtTime(d.nextStart - now);
+    const n = $c('crowd-next'); if (n) n.textContent = crowdFmtTime(d.nextStart - now);
+    if (now >= d.nextStart && !crowd.endPoll) { crowd.endPoll = true; setTimeout(() => { crowd.endPoll = false; crowdLoad(); }, 4000); }
+  }
+}
+
+// ---------- итог для игрока (один раз на событие) ----------
+function crowdMaybeResult(){
+  const r = crowd.data && crowd.data.lastResult; if (!r) return;
+  let seen = 0; try { seen = Number(localStorage.getItem('crowd_seen') || 0); } catch (e) {}
+  if (r.eventId <= seen) return;
+  try { localStorage.setItem('crowd_seen', String(r.eventId)); } catch (e) {}
+  let title, body;
+  if (r.outcome === 'win' && r.mySide === r.winnerSide) {
+    title = '🏆 Ваша команда победила!';
+    body = r.reward > 0 ? `Вам начислено <b>${r.reward} DULYA</b>.` : `Награда DULYA — от ${crowd.data.minReward} вложенной кармы, в этот раз не хватило.`;
+  } else if (r.outcome === 'win') {
+    title = 'Ваша команда проиграла';
+    body = r.back > 0 ? `Часть кармы вернулась: <b>${r.back}</b>.` : 'В этот раз карма не вернулась.';
+  } else {
+    title = 'Ничья';
+    body = r.back > 0 ? `Вся карма возвращена: <b>${r.back}</b>.` : 'Битва без результата.';
+  }
+  $c('crowd-modal-t').textContent = title; $c('crowd-modal-b').innerHTML = body;
+  $c('crowd-modal').style.display = 'flex';
+  refreshState().then(updateHud).catch(() => {});
+}
+$c('crowd-modal-ok').addEventListener('click', () => { $c('crowd-modal').style.display = 'none'; });
+
+// ---------- жизненный цикл вкладки ----------
+let crowdPreloaded = false;
+function crowdStart(){
+  if (!crowdPreloaded) { crowdPreloaded = true; ['bg'].forEach(() => { new Image().src = 'assets/crowd/bg.webp'; }); ['ded', 'babka', 'sumo', 'strongman'].forEach((n) => { new Image().src = `assets/duel/${n}.webp`; }); }
+  crowdStop();
+  crowdPanel();
+  crowdLoad();
+  crowd.poll = setInterval(() => { if (crowdActive()) crowdLoad(); }, 5000);
+  crowd.driver = setInterval(crowdStep, 42);
+  crowd.clock = setInterval(() => { if (crowdActive()) crowdTickClock(); }, 1000);
+  requestAnimationFrame(crowdLayout);
+}
+function crowdStop(){
+  clearInterval(crowd.poll); clearInterval(crowd.driver); clearInterval(crowd.clock);
+  crowd.poll = crowd.driver = crowd.clock = null;
+}
+function crowdSync(){ // вызывается при смене экрана/вкладки
+  try {
+  if (currentScreen === 'game' && currentSub === 'crowd') { if (!crowd.poll) crowdStart(); }
+  else crowdStop();
+  } catch (e) { /* до инициализации блока «Толпа» */ }
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden) crowdSync(); });
+window.addEventListener('resize', () => { if (crowdActive()) crowdLayout(); });
+function crowdHandleStartParam(){
+  const sp = tg?.initDataUnsafe?.start_param || new URLSearchParams(location.search).get('startapp') || '';
+  if (sp === 'crowd') { showScreen('game'); showSub('crowd'); }
+}
+
 // ---- init ----
 resizeCanvas();
 
@@ -3062,6 +3411,7 @@ async function boot(){
   connectOverlay.style.display = 'none';
   requestAnimationFrame(tick);
   try { duelHandleStartParam(); } catch (err) { console.error('duel start param', err); }
+  try { crowdHandleStartParam(); } catch (err) { console.error('crowd start param', err); }
 }
 
 connectRetry.addEventListener('click', boot);
