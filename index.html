@@ -157,8 +157,9 @@
   .mult-tag.show{ opacity:1; }
 
   .toast{
-    position:absolute;
-    top:8%;
+    position:fixed;
+    z-index:60;
+    top:14%;
     left:50%;
     transform:translate(-50%,-10px);
     background:var(--gold);
@@ -600,6 +601,96 @@
     padding:10px 20px;
     cursor:pointer;
   }
+
+  /* ---- Вызов на бой ---- */
+  .duel-pane{ overflow-y:auto; }
+  .duel-lobby{ padding:14px 16px 18px; display:flex; flex-direction:column; gap:12px; }
+  .duel-stats{ display:flex; justify-content:space-between; gap:8px; font-size:12px; color:var(--dim); }
+  .duel-stats b{ color:var(--paper); }
+  .duel-card{
+    background:var(--ink-2); border:1.5px solid rgba(255,244,227,.1); border-radius:16px;
+    padding:14px 16px; display:flex; flex-direction:column; gap:10px; font-size:13px; line-height:1.5;
+  }
+  .duel-card .row{ display:flex; gap:8px; }
+  .duel-card .row > *{ flex:1; }
+  .duel-big{ width:100%; padding:13px 14px; font-size:13px; }
+  .duel-search{
+    width:100%; background:var(--ink); color:var(--paper); border:1.5px solid rgba(255,244,227,.15);
+    border-radius:10px; padding:10px 12px; font-size:14px; outline:none;
+  }
+  .duel-player-row{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 0; border-bottom:1px solid rgba(255,244,227,.08); font-size:14px; }
+  .duel-player-row:last-child{ border-bottom:none; }
+  .duel-arena{ flex:1; display:flex; min-height:0; }
+  .duel-scene{
+    position:relative; flex:1; overflow:hidden; background:#b0e1e5;
+    touch-action:manipulation; user-select:none; -webkit-user-select:none; -webkit-tap-highlight-color:transparent;
+  }
+  #duel-bg{ position:absolute; left:0; bottom:0; width:100%; display:block; pointer-events:none; }
+  .duel-hud{
+    position:absolute; top:8px; left:8px; right:8px; z-index:8; color:#e8ecf4;
+    display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:8px;
+    padding:6px 12px; border-radius:14px; background:rgba(13,19,34,.6); backdrop-filter:blur(4px);
+  }
+  .duel-side{ display:flex; flex-direction:column; gap:2px; min-width:0; }
+  .duel-side.r{ align-items:flex-end; }
+  .duel-name{ font-size:12px; font-weight:700; letter-spacing:.03em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
+  .duel-side.me .duel-name{ color:#6c9cff; }
+  .duel-side.r .duel-name{ color:#ff6b7a; }
+  .duel-score{ font-family:'Unbounded',sans-serif; font-size:26px; font-weight:800; line-height:1; }
+  .duel-pips{ display:flex; gap:4px; height:8px; }
+  .duel-pip{ width:8px; height:8px; border-radius:50%; background:rgba(255,255,255,.25); }
+  .duel-pip.on{ background:var(--gold); box-shadow:0 0 6px var(--gold); }
+  .duel-mid{ display:flex; flex-direction:column; align-items:center; gap:2px; }
+  .duel-round{ font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--dim); }
+  .duel-timer{ font-family:'Unbounded',sans-serif; font-weight:800; font-size:22px; color:var(--gold-2); }
+  .duel-stage{ position:absolute; left:0; width:100%; z-index:5; pointer-events:none; }
+  .duel-fighter{ position:absolute; bottom:0; width:60%; aspect-ratio:569/512; transition:transform .12s ease-out; }
+  #duel-f1{ left:1.6%; }
+  #duel-f2{ left:45.6%; }
+  .duel-spr{
+    width:100%; height:100%; background-repeat:no-repeat; background-size:500% 400%;
+    transform-origin:44% 81%;
+  }
+  #duel-f2 .duel-spr{ transform:scaleX(-1); }
+  .duel-fighter.breathe .duel-spr{ animation:duelbr 1.6s ease-in-out infinite; }
+  #duel-f2.breathe .duel-spr{ animation-name:duelbr2; }
+  @keyframes duelbr{ 50%{ transform:scale(1.012,.985); } }
+  @keyframes duelbr2{ 0%,100%{ transform:scaleX(-1); } 50%{ transform:scale(-1.012,.985); } }
+  .duel-fighter.hit .duel-spr{ filter:brightness(1.35) drop-shadow(0 0 7px #ff3b3b); }
+  .duel-shadow{ position:absolute; bottom:15.5%; height:6%; width:26%; border-radius:50%; background:rgba(60,40,10,.35); filter:blur(3px); }
+  .duel-fire{
+    position:absolute; top:100%; left:28%; margin-top:8px; width:64px; height:64px; z-index:6;
+    transform:translateX(-50%) scale(0); opacity:0; pointer-events:none; padding:0;
+    border-radius:50%; border:3px solid #fff;
+    background:radial-gradient(circle at 50% 60%,#ffd34d 0,#ff8a2b 45%,#e0361b 100%);
+    box-shadow:0 0 0 0 rgba(255,120,40,.7),0 4px 10px #0006;
+    display:flex; align-items:center; justify-content:center;
+    transition:transform .25s cubic-bezier(.3,1.6,.5,1),opacity .2s;
+  }
+  .duel-fire svg{ width:32px; height:32px; }
+  .duel-fire.on{ transform:translateX(-50%) scale(1); opacity:1; pointer-events:auto; animation:duelpulse 1s ease-in-out infinite; }
+  @keyframes duelpulse{ 50%{ box-shadow:0 0 0 12px rgba(255,120,40,0),0 4px 10px #0006; } }
+  .duel-float{ position:absolute; font-weight:800; font-size:22px; color:var(--gold-2); pointer-events:none; text-shadow:0 2px 0 #0006; animation:duelup .8s ease-out forwards; z-index:7; }
+  .duel-float.big{ font-size:36px; color:#ff6a2b; }
+  @keyframes duelup{ to{ transform:translateY(-70px); opacity:0; } }
+  .duel-spark{ position:absolute; width:8px; height:8px; border-radius:50%; background:#fff3c4; pointer-events:none; animation:duelfly .45s ease-out forwards; z-index:7; }
+  .duel-spark.f{ background:#ff6a2b; width:11px; height:11px; }
+  @keyframes duelfly{ to{ transform:translate(var(--dx),var(--dy)) scale(.2); opacity:0; } }
+  .duel-shake{ animation:duelsh .3s linear; }
+  @keyframes duelsh{ 20%{ transform:translate(-6px,3px); } 40%{ transform:translate(5px,-4px); } 60%{ transform:translate(-4px,2px); } 80%{ transform:translate(3px,-1px); } }
+  .duel-overlay{
+    position:absolute; inset:0; z-index:20; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:10px; pointer-events:none; text-align:center; font-family:'Unbounded',sans-serif; font-weight:800; color:#fff;
+    text-shadow:0 3px 0 #0008; padding:0 20px;
+  }
+  .duel-overlay .big{ font-size:56px; line-height:1; }
+  .duel-overlay .mid{ font-size:22px; }
+  .duel-overlay .small{ font-size:13px; font-weight:600; font-family:'Manrope',sans-serif; text-shadow:0 1px 3px #000c; }
+  .duel-result{ pointer-events:auto; background:rgba(13,19,34,.88); border-radius:18px; padding:20px 22px; display:flex; flex-direction:column; align-items:center; gap:10px; max-width:300px; }
+  .duel-banner{
+    position:absolute; left:12px; right:12px; top:64px; z-index:9; display:none; text-align:center;
+    background:rgba(255,90,31,.92); color:#fff; border-radius:10px; padding:6px 10px; font-size:12px; font-weight:700;
+  }
 </style>
 </head>
 <body>
@@ -611,6 +702,8 @@
       <button class="connect-retry" id="connect-retry" style="display:none">Повторить</button>
     </div>
   </div>
+
+  <div class="toast" id="toast"></div>
 
   <div class="topbar">
     <div class="topbar-row">
@@ -638,7 +731,61 @@
       <button class="subnav-btn active" data-sub="wheel">Колесо кармы</button>
       <button class="subnav-btn" data-sub="gathering">Сборище</button>
     </div>
-    <div class="game-pane wip-pane" id="pane-duel"><div class="wip-title">Вызов на бой</div><div class="wip-sub">В разработке</div></div>
+    <div class="game-pane duel-pane" id="pane-duel">
+      <div class="duel-lobby" id="duel-lobby">
+        <div class="duel-stats" id="duel-stats"><span>Победы: <b>0</b></span><span>Поражения: <b>0</b></span></div>
+
+        <div class="duel-card" id="duel-incoming" style="display:none">
+          <div id="duel-incoming-text"></div>
+          <div class="row">
+            <button class="task-btn claim" id="duel-accept-btn">⚔️ Принять бой</button>
+            <button class="task-btn" id="duel-decline-btn">Отклонить</button>
+          </div>
+        </div>
+
+        <div class="duel-card" id="duel-waiting" style="display:none">
+          <div id="duel-waiting-text">Ждём соперника…</div>
+          <div id="duel-share" style="display:none">
+            <div class="ref-link-row">
+              <input class="ref-link-input mono" id="duel-link-input" readonly>
+              <button class="copy-btn-small" id="duel-copy-btn">Копировать</button>
+            </div>
+            <button class="task-btn duel-big" id="duel-share-btn" style="margin-top:8px">Отправить в Telegram</button>
+          </div>
+          <button class="task-btn" id="duel-cancel-btn">Отменить вызов</button>
+        </div>
+
+        <div id="duel-menu" style="display:flex; flex-direction:column; gap:10px">
+          <button class="task-btn claim duel-big" id="duel-btn-player">⚔️ Вызвать игрока</button>
+          <div class="duel-card" id="duel-players" style="display:none">
+            <input class="duel-search" id="duel-search" placeholder="Поиск по @username" autocomplete="off" autocapitalize="off">
+            <div id="duel-player-list"></div>
+          </div>
+          <button class="task-btn duel-big" id="duel-btn-link">🔗 Ссылка-вызов для друга</button>
+          <button class="task-btn duel-big" id="duel-btn-channel">📣 Вызов в канал</button>
+          <div class="wallet-note">Бой: до двух побед, раунд — 30 секунд. Тап по экрану — удар (+1), огненная кнопка раз в 5 секунд — мощный удар (+10). Бойцы выпадают случайно.</div>
+        </div>
+      </div>
+
+      <div class="duel-arena" id="duel-arena" style="display:none">
+        <div class="duel-scene" id="duel-scene">
+          <img id="duel-bg" alt="" src="assets/duel/bg.webp">
+          <div class="duel-hud">
+            <div class="duel-side me"><span class="duel-name" id="duel-name-me">Вы</span><span class="duel-score" id="duel-score-me">0</span><span class="duel-pips" id="duel-pips-me"></span></div>
+            <div class="duel-mid"><span class="duel-round" id="duel-round">Раунд 1/3</span><span class="duel-timer" id="duel-timer">30</span></div>
+            <div class="duel-side r"><span class="duel-name" id="duel-name-opp">Соперник</span><span class="duel-score" id="duel-score-opp">0</span><span class="duel-pips" id="duel-pips-opp"></span></div>
+          </div>
+          <div class="duel-banner" id="duel-banner"></div>
+          <div class="duel-stage" id="duel-stage">
+            <div class="duel-shadow" style="left:15%"></div><div class="duel-shadow" style="left:59%"></div>
+            <div class="duel-fighter breathe" id="duel-f1"><div class="duel-spr"></div></div>
+            <div class="duel-fighter breathe" id="duel-f2"><div class="duel-spr"></div></div>
+            <button class="duel-fire" id="duel-fire" aria-label="Огненный удар"><svg viewBox="0 0 24 24"><path fill="#fff" d="M12 2c1 3.5-1.5 5-1.5 7.5 0 1.4 1 2.5 2.3 2.5 1.6 0 2.7-1.3 2.4-3.4C17.6 10.5 19 13 19 15.5 19 19.6 15.9 22 12 22s-7-2.4-7-6.5c0-3 1.7-5.3 3.6-7.3.4 1.3 1.1 2 2 2.2C10.4 7.6 10.6 4.6 12 2z"/></svg></button>
+          </div>
+          <div class="duel-overlay" id="duel-overlay"></div>
+        </div>
+      </div>
+    </div>
     <div class="game-pane wip-pane" id="pane-crowd"><div class="wip-title">Толпа</div><div class="wip-sub">В разработке</div></div>
     <div class="game-pane wip-pane" id="pane-gathering"><div class="wip-title">Сборище</div><div class="wip-sub">В разработке</div></div>
     <div class="game-pane active" id="pane-wheel">
@@ -650,7 +797,6 @@
         <span class="streak-s">streak</span>
         <span class="mult-tag" id="mult-tag">x1</span>
       </div>
-      <div class="toast" id="toast"></div>
     </div>
 
     <div class="panel">
@@ -1814,6 +1960,8 @@ function showSub(sub){
   timerRow.style.display = (currentScreen === 'game' && sub === 'wheel') ? 'block' : 'none';
   if (sub === 'wheel') resizeCanvas();
   else if (state.mode === 'paid') showToast('Платная сессия идёт — колесо ждёт!');
+  if (sub === 'duel') duelOnOpen();
+  else if (duelBusy()) showToast('Бой идёт — вернись в «Вызов на бой»!');
 }
 document.getElementById('game-subnav').addEventListener('click', (e) => {
   const b = e.target.closest('.subnav-btn');
@@ -1821,6 +1969,7 @@ document.getElementById('game-subnav').addEventListener('click', (e) => {
 });
 
 function showScreen(name){
+  if (name !== 'game' && duelBusy()) showToast('Бой идёт — вернись в «Игра → Вызов на бой»!');
   currentScreen = name;
   for (const key in screens) screens[key].style.display = (key === name) ? 'flex' : 'none';
   timerRow.style.display = (name === 'game' && currentSub === 'wheel') ? 'block' : 'none';
@@ -2373,6 +2522,461 @@ function renderStakes(stakes){
   }
 }
 
+
+// =========================================================================
+// ВЫЗОВ НА БОЙ — живой бой 1 на 1 по WebSocket. Очки, раунды и кулдаун
+// огненной кнопки считает СЕРВЕР; здесь только показ и отправка «тап»/«огонь».
+// =========================================================================
+const DUEL_WS_URL = API_BASE.replace(/^http/, 'ws') + '/duel/ws';
+const DUEL_FRAME_FEET = 0.8125;   // доля высоты кадра, на которой стоят ноги
+const DUEL_BG_RATIO = 1344 / 768, DUEL_BG_FEET = 0.59;
+const DUEL_SEQ_DEFAULT = { jab:[12,6,6,12], power:[5,7,8,9,10,11,12], rest:12 };
+const DUEL_SEQ_LONGARM = { jab:[12,15,16,18,19,12], power:[5,7,8,9,10,11,12], rest:12 };
+const DUEL_SEQ = { ded:DUEL_SEQ_DEFAULT, babka:DUEL_SEQ_DEFAULT, sumo:DUEL_SEQ_LONGARM, strongman:DUEL_SEQ_LONGARM };
+const DUEL_PFPS = 18, DUEL_JFPS = 24;
+
+const $d = (id) => document.getElementById(id);
+const duelEls = {
+  lobby: $d('duel-lobby'), arena: $d('duel-arena'), scene: $d('duel-scene'), stage: $d('duel-stage'),
+  stats: $d('duel-stats'), incoming: $d('duel-incoming'), incomingText: $d('duel-incoming-text'),
+  waiting: $d('duel-waiting'), waitingText: $d('duel-waiting-text'), share: $d('duel-share'),
+  linkInput: $d('duel-link-input'), menu: $d('duel-menu'), players: $d('duel-players'),
+  search: $d('duel-search'), list: $d('duel-player-list'),
+  fire: $d('duel-fire'), overlay: $d('duel-overlay'), banner: $d('duel-banner'),
+  timer: $d('duel-timer'), round: $d('duel-round'),
+  scoreMe: $d('duel-score-me'), scoreOpp: $d('duel-score-opp'),
+  nameMe: $d('duel-name-me'), nameOpp: $d('duel-name-opp'),
+  pipsMe: $d('duel-pips-me'), pipsOpp: $d('duel-pips-opp'),
+};
+const duel = {
+  ws: null, id: null, you: null, opp: null, link: null,
+  phase: 'idle',          // idle | lobby-waiting | intro | round | between | ended
+  fighters: null, rounds: 3, roundEndLocal: 0, roundNo: 1,
+  fighterMe: null, fighterOpp: null,
+  fireOn: false, reconnectTimer: null, closedByUs: false, retry: 0,
+  timerHandle: null, overlayTimers: [],
+  fx: [ { anim:null, busy:false }, { anim:null, busy:false } ],   // 0 — я (слева), 1 — соперник (справа)
+};
+const duelBusy = () => ['intro','round','between'].includes(duel.phase);
+const duelName = (u) => (u && u.username ? '@' + u.username : u ? 'Игрок #' + u.id : 'Соперник');
+
+// ---------- спрайты ----------
+function duelShow(i, frame){
+  const spr = (i === 0 ? $d('duel-f1') : $d('duel-f2')).querySelector('.duel-spr');
+  spr.style.backgroundPosition = `${(frame % 5) / 4 * 100}% ${Math.floor(frame / 5) / 3 * 100}%`;
+}
+function duelSeq(i){ return DUEL_SEQ[i === 0 ? duel.fighterMe : duel.fighterOpp] || DUEL_SEQ_DEFAULT; }
+function duelRun(i, seq, fps, done){
+  const fx = duel.fx[i];
+  clearInterval(fx.anim);
+  let k = 0; duelShow(i, seq[0]);
+  fx.anim = setInterval(() => {
+    k++;
+    if (k >= seq.length){ clearInterval(fx.anim); fx.anim = null; if (done) done(); return; }
+    duelShow(i, seq[k]);
+  }, 1000 / fps);
+}
+function duelSetFighters(meName, oppName){
+  duel.fighterMe = meName; duel.fighterOpp = oppName;
+  const f1 = $d('duel-f1').querySelector('.duel-spr'), f2 = $d('duel-f2').querySelector('.duel-spr');
+  f1.style.backgroundImage = `url(assets/duel/${meName}.webp)`;
+  f2.style.backgroundImage = `url(assets/duel/${oppName}.webp)`;
+  duelShow(0, duelSeq(0).rest); duelShow(1, duelSeq(1).rest);
+}
+let duelPreloaded = false;
+function duelPreload(){
+  if (duelPreloaded) return; duelPreloaded = true;
+  ['bg', 'ded', 'babka', 'sumo', 'strongman'].forEach((n) => { new Image().src = `assets/duel/${n}.webp`; });
+}
+
+// ---------- раскладка сцены ----------
+function duelLayout(){
+  const W = duelEls.scene.clientWidth, H = duelEls.scene.clientHeight;
+  if (!W || !H) return;
+  const fH = W * 0.6 * 512 / 569;
+  const feetY = H - W * DUEL_BG_RATIO * (1 - DUEL_BG_FEET);
+  duelEls.stage.style.height = fH + 'px';
+  duelEls.stage.style.top = (feetY - fH * DUEL_FRAME_FEET) + 'px';
+}
+new ResizeObserver(duelLayout).observe(duelEls.scene);
+
+// ---------- эффекты ----------
+function duelSpark(cls, x, y, n){
+  for (let i = 0; i < n; i++){
+    const s = document.createElement('div'); s.className = 'duel-spark ' + cls;
+    const a = Math.random() * 6.28, d = 30 + Math.random() * (cls ? 80 : 40);
+    s.style.left = x + 'px'; s.style.top = y + 'px';
+    s.style.setProperty('--dx', Math.cos(a) * d + 'px'); s.style.setProperty('--dy', Math.sin(a) * d + 'px');
+    duelEls.scene.appendChild(s); setTimeout(() => s.remove(), 450);
+  }
+}
+function duelFloat(x, y, text, big){
+  const p = document.createElement('div'); p.className = 'duel-float' + (big ? ' big' : '');
+  p.textContent = text; p.style.left = (x - 14) + 'px'; p.style.top = (y - 30) + 'px';
+  duelEls.scene.appendChild(p); setTimeout(() => p.remove(), 800);
+}
+function duelChest(i){
+  const r = duelEls.scene.getBoundingClientRect(), b = $d(i === 0 ? 'duel-f1' : 'duel-f2').getBoundingClientRect();
+  return [b.left - r.left + b.width * 0.44, b.top - r.top + b.height * 0.42];
+}
+function duelReact(i, power){
+  const el = $d(i === 0 ? 'duel-f1' : 'duel-f2');
+  el.classList.add('hit');
+  el.style.transform = `translateX(${(i === 0 ? -1 : 1) * (power ? 26 : 10)}px)`;
+  setTimeout(() => { el.classList.remove('hit'); el.style.transform = ''; }, power ? 260 : 130);
+}
+// attacker: 0 — я, 1 — соперник
+function duelAttack(attacker, power){
+  const fx = duel.fx[attacker], victim = 1 - attacker, seq = duelSeq(attacker);
+  if (fx.busy) return;
+  const fps = power ? DUEL_PFPS : DUEL_JFPS, contact = (power ? 2 : 1) * 1000 / fps;
+  if (power){ fx.busy = true; duelRun(attacker, seq.power, fps, () => { fx.busy = false; duelShow(attacker, seq.rest); }); }
+  else duelRun(attacker, seq.jab, fps, () => duelShow(attacker, seq.rest));
+  setTimeout(() => {
+    if (!duelBusy()) return;
+    const [x, y] = duelChest(victim);
+    duelReact(victim, power);
+    duelFloat(x, y, '+' + (power ? 10 : 1), power);
+    duelSpark(power ? 'f' : '', x, y, power ? 16 : 7);
+    if (power){
+      duelEls.scene.classList.remove('duel-shake'); void duelEls.scene.offsetWidth; duelEls.scene.classList.add('duel-shake');
+    }
+  }, contact);
+}
+
+// ---------- HUD ----------
+function duelPips(el, wins){
+  el.innerHTML = '';
+  for (let i = 0; i < 2; i++){ const p = document.createElement('i'); p.className = 'duel-pip' + (i < wins ? ' on' : ''); el.appendChild(p); }
+}
+function duelSetScores(ra, rb){
+  const me = duel.you === 'a' ? ra : rb, opp = duel.you === 'a' ? rb : ra;
+  duelEls.scoreMe.textContent = me; duelEls.scoreOpp.textContent = opp;
+}
+function duelSetWins(wins){
+  duelPips(duelEls.pipsMe, wins[duel.you]); duelPips(duelEls.pipsOpp, wins[duel.you === 'a' ? 'b' : 'a']);
+}
+function duelTickTimer(){
+  if (duel.phase !== 'round') return;
+  const left = Math.max(0, Math.ceil((duel.roundEndLocal - Date.now()) / 1000));
+  duelEls.timer.textContent = left;
+}
+function duelClearOverlay(){ duel.overlayTimers.forEach(clearTimeout); duel.overlayTimers = []; duelEls.overlay.innerHTML = ''; }
+function duelOverlay(html){ duelEls.overlay.innerHTML = html; }
+function duelFireShow(on){ duel.fireOn = on; duelEls.fire.classList.toggle('on', on); }
+
+// ---------- вход/выход из арены ----------
+function duelEnterArena(){
+  duelPreload();
+  duelEls.lobby.style.display = 'none'; duelEls.arena.style.display = 'flex';
+  duelLayout();
+  clearInterval(duel.timerHandle); duel.timerHandle = setInterval(duelTickTimer, 200);
+}
+function duelLeaveArena(){
+  clearInterval(duel.timerHandle); duelClearOverlay(); duelFireShow(false);
+  duelEls.arena.style.display = 'none'; duelEls.lobby.style.display = 'flex';
+  duelEls.banner.style.display = 'none';
+  duelCloseWs(); duelReset(); duelLoadMe();
+  refreshState().catch(() => {});
+}
+function duelReset(){
+  duel.id = null; duel.you = null; duel.opp = null; duel.link = null; duel.phase = 'idle'; duel.retry = 0;
+  duelEls.waiting.style.display = 'none'; duelEls.incoming.style.display = 'none'; duelEls.menu.style.display = 'flex';
+}
+
+// ---------- WebSocket ----------
+function duelSend(obj){ if (duel.ws && duel.ws.readyState === 1) duel.ws.send(JSON.stringify(obj)); }
+function duelCloseWs(){
+  duel.closedByUs = true; clearTimeout(duel.reconnectTimer);
+  if (duel.ws){ try { duel.ws.close(); } catch (e) {} duel.ws = null; }
+}
+function duelConnect(id){
+  duelCloseWs();
+  duel.id = id; duel.closedByUs = false;
+  const ws = new WebSocket(DUEL_WS_URL);
+  duel.ws = ws;
+  ws.onopen = () => { duel.retry = 0; ws.send(JSON.stringify({ t:'auth', token:apiToken })); ws.send(JSON.stringify({ t:'join', duelId:id })); };
+  ws.onmessage = (e) => { let m; try { m = JSON.parse(e.data); } catch (err) { return; } duelOnMsg(m); };
+  ws.onclose = (ev) => {
+    if (duel.ws !== ws) return;
+    if (duel.closedByUs || ev.code === 4000 || duel.phase === 'ended' || duel.id !== id) return;
+    duel.retry++;
+    if (duel.retry > 8){ showToast('Связь с боем потеряна'); duelLeaveArena(); return; }
+    duelEls.banner.textContent = 'Связь потеряна, переподключаемся…'; if (duelBusy()) duelEls.banner.style.display = 'block';
+    duel.reconnectTimer = setTimeout(() => duelConnect(id), Math.min(1000 * duel.retry, 4000));
+  };
+}
+const DUEL_WHY = {
+  daily_cap: 'Награда не начислена: суточный лимит наград исчерпан',
+  pair_cap: 'Награда не начислена: лимит наград за бои с этим соперником на сегодня',
+  no_play: 'Награда не начислена: бой был слишком коротким',
+};
+function duelOnMsg(m){
+  switch (m.t){
+    case 'room': {
+      duel.you = m.you; duel.opp = m.opponent; duel.rounds = m.rounds;
+      duelEls.nameMe.textContent = 'Вы'; duelEls.nameOpp.textContent = duelName(m.opponent);
+      if (m.phase === 'waiting'){ duelShowWaiting(!!m.opponent); break; }
+      // возврат в идущий бой
+      duelEnterArena(); duelClearOverlay(); duelEls.banner.style.display = 'none';
+      const oppSide = m.you === 'a' ? 'b' : 'a';
+      duelSetFighters(m.fighters[m.you], m.fighters[oppSide]);
+      duel.phase = m.phase; duel.roundNo = m.round;
+      duelEls.round.textContent = `Раунд ${m.round}/${m.rounds}`;
+      duelSetScores(m.roundScore.a, m.roundScore.b); duelSetWins(m.wins);
+      if (m.phase === 'round'){
+        duel.roundEndLocal = Date.now() + m.roundEndsIn; duelTickTimer();
+        if (m.fireReadyIn <= 0) duelFireShow(true);
+        else setTimeout(() => { if (duel.phase === 'round') duelFireShow(true); }, m.fireReadyIn);
+      }
+      if (!m.oppOnline) duelBanner('Соперник отключился, ждём…');
+      break;
+    }
+    case 'opponent_joined':
+      duel.opp = m.opponent; duelEls.nameOpp.textContent = duelName(m.opponent);
+      duelEls.waitingText.textContent = `${duelName(m.opponent)} принял бой! Заходим…`;
+      duelEls.share.style.display = 'none';
+      break;
+    case 'fight_start': {
+      duel.you = m.you; duel.opp = m.opponent; duel.rounds = m.rounds;
+      const oppSide = m.you === 'a' ? 'b' : 'a';
+      duelEnterArena(); duelClearOverlay();
+      duelEls.nameMe.textContent = 'Вы'; duelEls.nameOpp.textContent = duelName(m.opponent);
+      duelSetFighters(m.fighters[m.you], m.fighters[oppSide]);
+      duelSetScores(0, 0); duelSetWins({ a:0, b:0 });
+      duelEls.timer.textContent = Math.round(m.roundMs / 1000);
+      duel.phase = 'intro';
+      break;
+    }
+    case 'round_intro': {
+      duel.phase = 'intro'; duel.roundNo = m.round;
+      duelEls.round.textContent = `Раунд ${m.round}/${duel.rounds}`;
+      duelSetScores(0, 0); duelFireShow(false);
+      duelClearOverlay();
+      let n = Math.max(1, Math.round(m.startsIn / 1000));
+      duelOverlay(`<div class="mid">Раунд ${m.round}</div><div class="big">${n}</div>`);
+      for (let i = 1; i < n; i++){
+        duel.overlayTimers.push(setTimeout(() => duelOverlay(`<div class="mid">Раунд ${m.round}</div><div class="big">${n - i}</div>`), i * 1000 * (m.startsIn / (n * 1000))));
+      }
+      break;
+    }
+    case 'round_start':
+      duel.phase = 'round'; duel.roundEndLocal = Date.now() + m.durationMs; duelTickTimer();
+      duelClearOverlay(); duelOverlay('<div class="big">В БОЙ!</div>');
+      duel.overlayTimers.push(setTimeout(duelClearOverlay, 800));
+      break;
+    case 'act':
+      duelSetScores(m.ra, m.rb);
+      if (m.by !== duel.you){
+        duelAttack(1, m.kind === 'fire');
+        if (m.kind === 'fire') haptic('miss');
+      }
+      break;
+    case 'fire_ready': duelFireShow(true); haptic('hit'); break;
+    case 'fire_denied': duelFireShow(false); setTimeout(() => { if (duel.phase === 'round') duelFireShow(true); }, m.readyIn); break;
+    case 'round_end': {
+      duel.phase = 'between'; duelFireShow(false); duelSetScores(m.ra, m.rb); duelSetWins(m.wins);
+      const mine = m.winner === null ? 'ничья' : (m.winner === duel.you ? 'вы выиграли раунд' : 'раунд за соперником');
+      const [me, opp] = duel.you === 'a' ? [m.ra, m.rb] : [m.rb, m.ra];
+      duelOverlay(`<div class="mid">${mine}</div><div class="big">${me}:${opp}</div>`);
+      break;
+    }
+    case 'opp_status':
+      if (m.online) duelEls.banner.style.display = 'none';
+      else duelBanner('Соперник отключился, ждём…');
+      break;
+    case 'match_end': duelOnMatchEnd(m); break;
+    case 'cancelled':
+      showToast({ expired: 'Вызов истёк', no_show: 'Соперник не вышел на бой', cancelled: 'Вызов отменён', replaced: 'Вызов заменён новым' }[m.reason] || 'Бой отменён');
+      duelLeaveArena();
+      break;
+    case 'error':
+      if (m.error === 'no_room'){ showToast('Этот бой уже завершён'); duelLeaveArena(); }
+      break;
+  }
+}
+function duelBanner(text){ duelEls.banner.textContent = text; duelEls.banner.style.display = 'block'; }
+
+function duelOnMatchEnd(m){
+  duel.phase = 'ended'; duelFireShow(false); duelEls.banner.style.display = 'none';
+  duelSetWins(m.wins);
+  const mine = m.winner === null ? 'draw' : (m.winner === duel.you ? 'win' : 'lose');
+  const title = { win:'ПОБЕДА!', lose:'ПОРАЖЕНИЕ', draw:'НИЧЬЯ' }[mine];
+  const side = duel.you, opp = side === 'a' ? 'b' : 'a';
+  let extra = '';
+  if (m.reward > 0){ extra = `<div class="mid" style="color:var(--gold-2)">+${m.reward} DULYA</div>`; state.tokens += m.reward; }
+  else if (mine === 'win' && m.why && DUEL_WHY[m.why]) extra = `<div class="small">${DUEL_WHY[m.why]}</div>`;
+  if (m.reason === 'forfeit') extra += `<div class="small">${mine === 'win' ? 'Соперник покинул бой' : 'Вы покинули бой'}</div>`;
+  duelClearOverlay();
+  duelOverlay(`<div class="duel-result">
+      <div class="mid">${title}</div>
+      <div class="small">Раунды ${m.wins[side]}:${m.wins[opp]} · очки ${m.total[side]}:${m.total[opp]}</div>
+      ${extra}
+      <button class="task-btn claim" id="duel-done-btn">Закрыть</button>
+    </div>`);
+  $d('duel-done-btn').addEventListener('click', duelLeaveArena);
+  if (mine === 'win') haptic('golden');
+  sfx(mine === 'win' ? 'golden' : 'miss');
+}
+
+// ---------- ввод в бою ----------
+duelEls.scene.addEventListener('pointerdown', (e) => {
+  if (e.target.closest('.duel-fire') || e.target.closest('.duel-result')) return;
+  if (duel.phase !== 'round') return;
+  ensureAudio();
+  duelAttack(0, false); duelSend({ t:'tap' });
+  sfx('hit'); haptic('hit');
+});
+duelEls.fire.addEventListener('pointerdown', (e) => {
+  e.stopPropagation();
+  if (!duel.fireOn || duel.phase !== 'round') return;
+  duelFireShow(false);
+  duelAttack(0, true); duelSend({ t:'fire' });
+  sfx('golden'); haptic('miss');
+});
+
+// ---------- лобби ----------
+async function duelLoadMe(){
+  try {
+    const res = await apiFetch('/duel/me');
+    if (!res.ok) return;
+    const d = await res.json();
+    duelEls.stats.innerHTML = `<span>Победы: <b>${d.wins}</b></span><span>Поражения: <b>${d.losses}</b></span><span>Награды сегодня: <b>${d.rewardedToday}/${d.dailyCap}</b></span>`;
+    if (d.current && duel.phase === 'idle'){
+      duel.link = d.current.link;
+      duelConnect(d.current.id);
+    }
+  } catch (err) { /* тихо: лобби останется без статистики */ }
+}
+function duelShowWaiting(accepted){
+  duel.phase = 'lobby-waiting';
+  duelEls.menu.style.display = 'none'; duelEls.incoming.style.display = 'none'; duelEls.waiting.style.display = 'flex';
+  duelEls.waitingText.textContent = accepted ? `${duelName(duel.opp)} принял бой! Заходим…` : 'Ждём соперника… Вызов действует 10 минут. Не закрывайте игру.';
+  if (duel.link && !accepted){ duelEls.share.style.display = 'block'; duelEls.linkInput.value = duel.link; } else duelEls.share.style.display = 'none';
+  $d('duel-cancel-btn').style.display = duel.you === 'a' || !duel.you ? 'inline-block' : 'none';
+}
+const DUEL_ERR = {
+  busy: 'Вы уже в бою или ждёте соперника', rate_limited: 'Слишком много вызовов — подождите немного',
+  channel_limit: 'В канал можно звать не больше 3 раз в сутки', user_not_found: 'Игрок не найден',
+  cannot_challenge_self: 'Нельзя вызвать самого себя', forbidden: 'Недоступно',
+};
+async function duelChallenge(opts, who){
+  try {
+    const res = await apiFetch('/duel/challenge', { method:'POST', body: JSON.stringify(opts) });
+    const d = await res.json();
+    if (!res.ok){ showToast(DUEL_ERR[d.error] || 'Не получилось создать вызов'); return; }
+    duel.link = d.link; duel.you = 'a';
+    duelConnect(d.id);
+    duelShowWaiting(false);
+    if (d.via === 'dm' && d.delivered) duelEls.waitingText.textContent = `Вызов отправлен ${who}. Ждём ответа… Не закрывайте игру.`;
+    else if (d.via === 'dm') duelEls.waitingText.textContent = `Бот не смог написать ${who} (он ещё не запускал бота). Отправьте ссылку сами:`;
+    else if (d.via === 'channel' && d.delivered) duelEls.waitingText.textContent = 'Вызов опубликован в канале. Ждём соперника… Не закрывайте игру.';
+    else if (d.via === 'channel') duelEls.waitingText.textContent = 'Не получилось опубликовать в канале. Отправьте ссылку сами:';
+    else duelEls.waitingText.textContent = 'Отправьте ссылку другу и ждите. Вызов действует 10 минут. Не закрывайте игру.';
+    const needLink = d.via === 'link' || !d.delivered;
+    duelEls.share.style.display = needLink && d.link ? 'block' : 'none';
+    if (d.link) duelEls.linkInput.value = d.link;
+  } catch (err) { showToast('Ошибка сети'); }
+}
+let duelSearchTimer = null;
+async function duelLoadPlayers(q){
+  duelEls.list.innerHTML = '<div class="dev-note">Загрузка…</div>';
+  try {
+    const res = await apiFetch('/duel/players?q=' + encodeURIComponent(q || ''));
+    const d = await res.json();
+    duelEls.list.innerHTML = '';
+    if (!d.players.length){ duelEls.list.innerHTML = '<div class="dev-note">Никого не нашли.</div>'; return; }
+    for (const p of d.players){
+      const row = document.createElement('div'); row.className = 'duel-player-row';
+      const name = document.createElement('span'); name.textContent = '@' + p.username;
+      const btn = document.createElement('button'); btn.className = 'task-btn claim'; btn.textContent = 'Вызвать';
+      btn.addEventListener('click', () => { btn.disabled = true; duelChallenge({ targetId: p.id }, '@' + p.username); });
+      row.append(name, btn); duelEls.list.appendChild(row);
+    }
+  } catch (err) { duelEls.list.innerHTML = '<div class="dev-note">Не удалось загрузить список.</div>'; }
+}
+$d('duel-btn-player').addEventListener('click', () => {
+  const open = duelEls.players.style.display === 'none';
+  duelEls.players.style.display = open ? 'flex' : 'none';
+  if (open) duelLoadPlayers('');
+});
+duelEls.search.addEventListener('input', () => {
+  clearTimeout(duelSearchTimer);
+  duelSearchTimer = setTimeout(() => duelLoadPlayers(duelEls.search.value.replace(/^@/, '').trim()), 300);
+});
+$d('duel-btn-link').addEventListener('click', () => duelChallenge({}, ''));
+$d('duel-btn-channel').addEventListener('click', () => duelChallenge({ channel: true }, ''));
+$d('duel-copy-btn').addEventListener('click', () => {
+  navigator.clipboard.writeText(duelEls.linkInput.value).then(() => {
+    const b = $d('duel-copy-btn'); b.textContent = 'Скопировано'; setTimeout(() => { b.textContent = 'Копировать'; }, 1500);
+  });
+});
+$d('duel-share-btn').addEventListener('click', () => {
+  const url = 'https://t.me/share/url?url=' + encodeURIComponent(duel.link || '') + '&text=' + encodeURIComponent('⚔️ Вызываю тебя на бой в «Покажи дулю»!');
+  if (tg?.openTelegramLink) tg.openTelegramLink(url); else window.open(url, '_blank');
+});
+$d('duel-cancel-btn').addEventListener('click', async () => {
+  const id = duel.id;
+  duelCloseWs();
+  if (id) { try { await apiFetch(`/duel/${id}/cancel`, { method:'POST' }); } catch (err) {} }
+  duelReset(); duelLoadMe();
+});
+
+// ---------- входящий вызов (по ссылке/кнопке из бота) ----------
+let duelInviteId = null;
+async function duelOpenInvite(id){
+  showScreen('game'); showSub('duel');
+  try {
+    const res = await apiFetch('/duel/' + id);
+    if (!res.ok){ showToast('Вызов не найден'); return; }
+    const d = await res.json();
+    if (d.role !== 'stranger'){
+      if (['pending', 'ready', 'active'].includes(d.status) && d.live){ duel.link = null; duelConnect(id); }
+      else showToast('Этот бой уже завершён');
+      return;
+    }
+    if (d.status === 'expired'){ showToast('Вызов уже истёк'); return; }
+    if (d.status !== 'pending'){ showToast('Вызов уже принят другим игроком'); return; }
+    if (!d.forYou){ showToast('Этот вызов адресован другому игроку'); return; }
+    duelInviteId = id;
+    duelEls.menu.style.display = 'none'; duelEls.incoming.style.display = 'flex';
+    duelEls.incomingText.textContent = `${duelName(d.challenger)} вызывает вас на бой! До двух побед, раунд — 30 секунд.`;
+  } catch (err) { showToast('Ошибка сети'); }
+}
+$d('duel-accept-btn').addEventListener('click', async () => {
+  if (!duelInviteId) return;
+  const id = duelInviteId;
+  try {
+    const res = await apiFetch(`/duel/${id}/accept`, { method:'POST' });
+    const d = await res.json();
+    if (!res.ok){
+      showToast({ busy:'Вы уже в бою', expired:'Вызов уже истёк', not_pending:'Вызов уже принят', not_found:'Вызов не найден', not_your_duel:'Этот вызов не для вас', own_duel:'Это ваш вызов' }[d.error] || 'Не получилось принять');
+      duelEls.incoming.style.display = 'none'; duelEls.menu.style.display = 'flex'; duelInviteId = null;
+      return;
+    }
+    duelInviteId = null; duel.you = 'b';
+    duelConnect(id);
+    duelShowWaiting(true);
+    duelEls.waitingText.textContent = d.challengerOnline ? 'Заходим в бой…' : 'Ждём, пока соперник зайдёт в игру…';
+    $d('duel-cancel-btn').style.display = 'none';
+  } catch (err) { showToast('Ошибка сети'); }
+});
+$d('duel-decline-btn').addEventListener('click', () => {
+  duelInviteId = null; duelEls.incoming.style.display = 'none'; duelEls.menu.style.display = 'flex';
+});
+function duelHandleStartParam(){
+  const sp = tg?.initDataUnsafe?.start_param || new URLSearchParams(location.search).get('startapp') || '';
+  const m = /^duel(\d+)$/.exec(sp);
+  if (m) duelOpenInvite(Number(m[1]));
+}
+
+// Вызывается из showSub при открытии подвкладки.
+function duelOnOpen(){
+  duelPreload();
+  if (duel.phase === 'idle') duelLoadMe();
+  duelLayout();
+}
+
 // ---- init ----
 resizeCanvas();
 
@@ -2435,6 +3039,7 @@ async function boot(){
 
   connectOverlay.style.display = 'none';
   requestAnimationFrame(tick);
+  try { duelHandleStartParam(); } catch (err) { console.error('duel start param', err); }
 }
 
 connectRetry.addEventListener('click', boot);
