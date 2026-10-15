@@ -763,7 +763,7 @@
           </div>
           <button class="task-btn duel-big" id="duel-btn-link">🔗 Ссылка-вызов для друга</button>
           <button class="task-btn duel-big" id="duel-btn-channel">📣 Вызов в канал</button>
-          <div class="wallet-note">Бой: до двух побед, раунд — 30 секунд. Тап по экрану — удар (+1), огненная кнопка раз в 5 секунд — мощный удар (+10). Бойцы выпадают случайно.</div>
+          <div class="wallet-note">Бой: до двух побед, раунд — 30 секунд. Тап по экрану — удар (+1), огненная кнопка раз в 5 секунд — мощный удар (+20), она каждый раз появляется в новом месте на траве. Бойцы выпадают случайно.</div>
         </div>
       </div>
 
@@ -2642,7 +2642,7 @@ function duelAttack(attacker, power){
     if (!duelBusy()) return;
     const [x, y] = duelChest(victim);
     duelReact(victim, power);
-    duelFloat(x, y, '+' + (power ? 10 : 1), power);
+    duelFloat(x, y, '+' + (power ? 20 : 1), power);
     duelSpark(power ? 'f' : '', x, y, power ? 16 : 7);
     if (power){
       duelEls.scene.classList.remove('duel-shake'); void duelEls.scene.offsetWidth; duelEls.scene.classList.add('duel-shake');
@@ -2669,7 +2669,22 @@ function duelTickTimer(){
 }
 function duelClearOverlay(){ duel.overlayTimers.forEach(clearTimeout); duel.overlayTimers = []; duelEls.overlay.innerHTML = ''; }
 function duelOverlay(html){ duelEls.overlay.innerHTML = html; }
-function duelFireShow(on){ duel.fireOn = on; duelEls.fire.classList.toggle('on', on); }
+function duelFirePlace(){
+  const W = duelEls.scene.clientWidth, H = duelEls.scene.clientHeight;
+  if (!W || !H) return;
+  const fH = W * 0.6 * 512 / 569, stageTop = parseFloat(duelEls.stage.style.top) || 0;
+  const feetY = stageTop + fH * DUEL_FRAME_FEET;
+  const minY = feetY + fH * 0.28, maxY = H - 72;     // только трава: ниже ног бойцов и выше нижнего края
+  const y = maxY > minY ? minY + Math.random() * (maxY - minY) : minY;
+  const x = 40 + Math.random() * Math.max(0, W - 80);
+  duelEls.fire.style.left = x + 'px';
+  duelEls.fire.style.top = (y - stageTop) + 'px';
+  duelEls.fire.style.marginTop = '0';
+}
+function duelFireShow(on){
+  if (on && !duel.fireOn) duelFirePlace();   // каждый раз — в новом месте на траве
+  duel.fireOn = on; duelEls.fire.classList.toggle('on', on);
+}
 
 // ---------- вход/выход из арены ----------
 function duelEnterArena(){
