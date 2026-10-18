@@ -2605,7 +2605,7 @@ const DUEL_BG_RATIO = 1344 / 768, DUEL_BG_FEET = 0.59;
 const DUEL_FEET_TARGET = 0.62;   // на какой доле высоты сцены стоят ноги бойцов
 const DUEL_SEQ_DEFAULT = { jab:[12,6,6,12], power:[5,7,8,9,10,11,12], rest:12 };
 const DUEL_SEQ_LONGARM = { jab:[12,15,16,18,19,12], power:[5,7,8,9,10,11,12], rest:12 };
-const DUEL_SEQ = { ded:DUEL_SEQ_DEFAULT, babka:DUEL_SEQ_DEFAULT, sumo:DUEL_SEQ_LONGARM, strongman:DUEL_SEQ_LONGARM };
+const DUEL_SEQ = { ded:DUEL_SEQ_DEFAULT, babka:DUEL_SEQ_DEFAULT, sumo:DUEL_SEQ_LONGARM, strongman:DUEL_SEQ_LONGARM, monk:DUEL_SEQ_DEFAULT, smith:DUEL_SEQ_DEFAULT };
 const DUEL_PFPS = 18, DUEL_JFPS = 24;
 
 const $d = (id) => document.getElementById(id);
@@ -2659,7 +2659,7 @@ function duelSetFighters(meName, oppName){
 let duelPreloaded = false;
 function duelPreload(){
   if (duelPreloaded) return; duelPreloaded = true;
-  ['bg', 'ded', 'babka', 'sumo', 'strongman'].forEach((n) => { new Image().src = `assets/duel/${n}.webp`; });
+  ['bg', 'ded', 'babka', 'sumo', 'strongman', 'monk', 'smith'].forEach((n) => { new Image().src = `assets/duel/${n}.webp`; });
 }
 
 // ---------- раскладка сцены ----------
@@ -3342,7 +3342,7 @@ $c('crowd-modal-ok').addEventListener('click', () => { $c('crowd-modal').style.d
 // ---------- жизненный цикл вкладки ----------
 let crowdPreloaded = false;
 function crowdStart(){
-  if (!crowdPreloaded) { crowdPreloaded = true; ['bg'].forEach(() => { new Image().src = 'assets/crowd/bg.webp'; }); ['ded', 'babka', 'sumo', 'strongman'].forEach((n) => { new Image().src = `assets/duel/${n}.webp`; }); }
+  if (!crowdPreloaded) { crowdPreloaded = true; ['bg'].forEach(() => { new Image().src = 'assets/crowd/bg.webp'; }); ['ded', 'babka', 'sumo', 'strongman', 'monk', 'smith'].forEach((n) => { new Image().src = `assets/duel/${n}.webp`; }); }
   crowdStop();
   crowdPanel();
   crowdLoad();
