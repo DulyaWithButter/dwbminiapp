@@ -792,6 +792,7 @@
           <button class="task-btn duel-big" id="duel-btn-link">🔗 Ссылка-вызов для друга</button>
           <button class="task-btn duel-big" id="duel-btn-channel">📣 Вызов в канал</button>
           <div class="wallet-note">Бой: до двух побед, раунд — 30 секунд. Тап по экрану — удар (+1), огненная кнопка раз в 5 секунд — мощный удар (+20), она каждый раз появляется в новом месте на траве. Бойцы выпадают случайно.</div>
+          <div class="wallet-note" id="duel-reward-note"></div>
         </div>
       </div>
 
@@ -1702,12 +1703,15 @@ function sleepOrWake(ms){
 async function tryConfirmNonce(confirmUrl, body, attempts, intervalMs){
   for (let i = 0; i < attempts; i++){
     if (i > 0) await sleepOrWake(intervalMs);
-    const res = await apiFetch(confirmUrl, {
-      method: 'POST',
-      body: JSON.stringify(body),
-    });
+    let res;
+    try {
+      res = await apiFetch(confirmUrl, { method: 'POST', body: JSON.stringify(body) });
+    } catch (err) { continue; } // обрыв сети — это не отказ, пробуем ещё раз
     if (res.status === 200) return { outcome: 'confirmed', data: await res.json() }; // res.ok тоже true для 202 (pending) — проверяем точный код
-    if (res.status !== 202) return { outcome: 'error' }; // реальная ошибка — повторять бессмысленно
+    if (res.status !== 202) {
+      let d = null; try { d = await res.json(); } catch (e) {}
+      return { outcome: 'error', status: res.status, error: d && d.error }; // реальная ошибка — повторять бессмысленно
+    }
   }
   return { outcome: 'pending' };
 }
@@ -2443,19 +2447,35 @@ async function updateStakeQuote(){
   }
 }
 
+// Неподтверждённый платёж за стейк запоминаем и между запусками приложения:
+// деньги могли уже уйти, и платить второй раз не нужно.
+function setPendingStake(v){
+  state.pendingStake = v;
+  try { if (v) localStorage.setItem('dwb_pending_stake', JSON.stringify(v)); else localStorage.removeItem('dwb_pending_stake'); } catch (e) {}
+}
+function restorePendingStake(){
+  if (state.pendingStake) return;
+  try {
+    const raw = localStorage.getItem('dwb_pending_stake');
+    if (raw) state.pendingStake = JSON.parse(raw);
+  } catch (e) {}
+}
+const STAKE_FINAL_ERRORS = ['unknown_nonce', 'amount_mismatch'];
+
 stakeSubmitBtn.addEventListener('click', async () => {
+  restorePendingStake();
   // Если с прошлого раза остался неподтверждённый платёж за стейкинг —
   // сначала проверяем именно его, а не заставляем платить заново.
   if (state.pendingStake){
     stakeSubmitBtn.disabled = true;
     showToast('Проверяем предыдущий платёж…');
-    const { outcome, data } = await tryConfirmNonce(
+    const { outcome, data, error } = await tryConfirmNonce(
       '/game/staking/confirm',
       { ...state.pendingStake },
       4, 3000
     );
     if (outcome === 'confirmed'){
-      state.pendingStake = null;
+      setPendingStake(null);
       showToast('Стейк создан!');
       stakeAmountInput.value = '';
       stakeQuoteEl.textContent = '';
@@ -2464,10 +2484,14 @@ stakeSubmitBtn.addEventListener('click', async () => {
       stakeSubmitBtn.disabled = false;
       return;
     }
-    if (outcome === 'error'){
-      state.pendingStake = null; // этот платёж больше не имеет смысла перепроверять
+    if (outcome === 'error' && STAKE_FINAL_ERRORS.includes(error)){
+      setPendingStake(null); // этот платёж больше не имеет смысла перепроверять
     }
     stakeSubmitBtn.disabled = false;
+    if (outcome === 'error'){
+      showToast('Не получилось: ' + (error || 'ошибка сервера') + '. Если платёж уже ушёл — нажмите ещё раз, платить заново не нужно');
+      return;
+    }
     if (outcome === 'pending'){
       showToast('Платёж всё ещё не нашёлся — попробуйте ещё раз чуть позже, или нажмите снова для новой оплаты');
       return;
@@ -2505,20 +2529,24 @@ stakeSubmitBtn.addEventListener('click', async () => {
     // несколько раз с паузой, а не один раз (~30 секунд суммарно).
     showToast('Проверяем платёж в блокчейне…');
     const confirmBody = { termMonths: stakeTerm, currency: stakeCurrency, amount, nonce: prep.nonce };
-    const { outcome } = await tryConfirmNonce('/game/staking/confirm', confirmBody, 10, 3000);
+    // Платёж мог уйти уже сейчас — запоминаем его сразу, до результата проверки.
+    setPendingStake(confirmBody);
+    const { outcome, error } = await tryConfirmNonce('/game/staking/confirm', confirmBody, 10, 3000);
 
     if (outcome === 'error'){
-      showToast('Не получилось подтвердить платёж');
+      if (STAKE_FINAL_ERRORS.includes(error)) setPendingStake(null);
+      showToast('Не получилось создать стейк: ' + (error || 'ошибка сервера') + (STAKE_FINAL_ERRORS.includes(error) ? '' : '. Нажмите «Застейкать» ещё раз — платить заново не нужно'));
       return;
     }
     if (outcome === 'pending'){
       // Запоминаем платёж — следующий клик по кнопке проверит именно его,
       // а не создаст новый, пока индексатор наконец не подхватит.
-      state.pendingStake = confirmBody;
+      setPendingStake(confirmBody);
       showToast('Платёж отправлен, но пока не нашёлся в блокчейне — нажмите «Застейкать» ещё раз через минуту, платить заново не нужно');
       return;
     }
 
+    setPendingStake(null);
     showToast('Стейк создан!');
     stakeAmountInput.value = '';
     stakeQuoteEl.textContent = '';
@@ -2535,6 +2563,8 @@ stakeSubmitBtn.addEventListener('click', async () => {
 });
 
 async function loadStakes(){
+  restorePendingStake();
+  if (state.pendingStake) showToast('Есть неподтверждённый платёж за стейк — нажмите «Застейкать», платить заново не нужно');
   stakesListEl.innerHTML = '<div class="lb-empty">Загрузка…</div>';
   try {
     const res = await apiFetch('/game/staking/mine');
@@ -2803,6 +2833,7 @@ const DUEL_WHY = {
   daily_cap: 'Награда не начислена: суточный лимит наград исчерпан',
   pair_cap: 'Награда не начислена: лимит наград за бои с этим соперником на сегодня',
   no_play: 'Награда не начислена: бой был слишком коротким',
+  no_luck: 'В этот раз Дуля не выпала — повезёт в следующем бою!',
 };
 function duelOnMsg(m){
   switch (m.t){
@@ -2898,6 +2929,7 @@ function duelOnMatchEnd(m){
   const side = duel.you, opp = side === 'a' ? 'b' : 'a';
   let extra = '';
   if (m.reward > 0){ extra = `<div class="mid" style="color:var(--gold-2)">+${m.reward} DULYA</div>`; state.tokens += m.reward; }
+  else if (m.karma > 0){ extra = `<div class="mid" style="color:var(--gold-2)">+${m.karma} кармы</div>`; state.points += m.karma; }
   else if (mine === 'win' && m.why && DUEL_WHY[m.why]) extra = `<div class="small">${DUEL_WHY[m.why]}</div>`;
   if (m.reason === 'forfeit') extra += `<div class="small">${mine === 'win' ? 'Соперник покинул бой' : 'Вы покинули бой'}</div>`;
   duelClearOverlay();
@@ -2934,7 +2966,9 @@ async function duelLoadMe(){
     const res = await apiFetch('/duel/me');
     if (!res.ok) return;
     const d = await res.json();
-    duelEls.stats.innerHTML = `<span>Победы: <b>${d.wins}</b></span><span>Поражения: <b>${d.losses}</b></span><span>Награды сегодня: <b>${d.rewardedToday}/${d.dailyCap}</b></span>`;
+    duelEls.stats.innerHTML = `<span>Победы: <b>${d.wins}</b></span><span>Поражения: <b>${d.losses}</b></span><span>Бои с Дулей: <b>${Math.min(d.fightsToday ?? d.rewardedToday, d.dulyaFights ?? d.dailyCap)}/${d.dulyaFights ?? d.dailyCap}</b></span>`;
+    const note = document.getElementById('duel-reward-note');
+    if (note && d.dulyaFights !== undefined) note.textContent = `Награды: победа в первых ${d.dulyaFights} боях за сутки может принести ${d.reward} DULYA, в остальных боях — ${d.karmaReward} кармы за победу.`;
     if (d.current && duel.phase === 'idle'){
       duel.link = d.current.link;
       duelConnect(d.current.id);
